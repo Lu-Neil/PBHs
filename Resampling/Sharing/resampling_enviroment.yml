@@ -1,0 +1,12 @@
+name: NUFFT_resampling
+
+dependencies:
+- pip
+- numpy
+- scipy
+- matplotlib
+- time
+- pip:
+  - pyFFTW
+  - finufft
+  - cufinufft
