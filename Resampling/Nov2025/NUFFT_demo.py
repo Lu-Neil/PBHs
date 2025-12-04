@@ -127,6 +127,7 @@ for i in range(100):
 # %%
 pl.plot(distance_arr, recovery_arr, 'o')
 pl.plot(distance_arr, np.sinc(distance_arr)**2, 'o')
+pl.title("Monochromatic signal")
 
 # %%
 recovery_arr = []
@@ -153,5 +154,38 @@ pl.plot(distance_arr, np.sinc(distance_arr)**2, 'o', label="Theoretically predic
 pl.xlabel("Distance from bin centre")
 pl.ylabel("Normalized power")
 pl.legend()
+pl.title("$\dot{f}$ signal")
+
+# %%
+recovery_arr = []
+distance_arr = []
+f_max = 2**6
+T_obs = 2**10
+f_signal = 4*f_max
+nt = round(f_signal*T_obs)
+t = (np.arange(nt)/f_signal)
+
+for i in range(100):
+    f0 = np.random.uniform(1, 2) 
+    df0 = 10**np.random.uniform(-3, -1) * 2e30
+    beta = const*f0**(8/3)*Mc**(5/3)
+    phi = 6*np.pi/5*f0*(1-8./3.*(beta)*t)**(5/8)/beta
+    tau = 6*np.pi/5*(1-8/3*beta*t)**(5/8)/beta
+    signal = np.real(1*np.exp(-1j*phi))
+    
+    resampler = Resampler()
+    resampler.timeseries = signal
+    resampler.resampled_time = tau
+    resampler.nufft_real()
+    recovery_arr.append(max(resampler.power_normalized))
+    distance_arr.append(min(abs(resampler.freqs-f0))/np.diff(resampler.freqs)[0])
+
+# %%
+pl.plot(distance_arr, recovery_arr, 'o', label="Numerically recovered power")
+pl.plot(distance_arr, np.sinc(distance_arr)**2, 'o', label="Theoretically predicted recovery")
+pl.xlabel("Distance from bin centre")
+pl.ylabel("Normalized power")
+pl.legend()
+pl.title("PBH signal")
 
 # %%

@@ -86,22 +86,6 @@ pl.axvline(expected_f+2/side_day, c='r', ls='--')
 pl.xlim(expected_f-10/side_day, expected_f+10/side_day)
 
 # %%
-fft_freqs = np.fft.fftshift(np.fft.fftfreq(len(amp_modulation), np.diff(t)[0]))
-fft_amps = np.fft.fftshift(np.fft.fft(amp_modulation))/len(amp_modulation)
-
-# We verify that the modulated waveform has the distinctive five peaks expected
-expected_f = 0
-pl.plot(fft_freqs, abs(fft_amps)**2, 'o')
-pl.axvline(expected_f-2/side_day, c='r', ls='--')
-pl.axvline(expected_f-1/side_day, c='r', ls='--')
-pl.axvline(expected_f, c='r', ls='--')
-pl.axvline(expected_f+1/side_day, c='r', ls='--')
-pl.axvline(expected_f+2/side_day, c='r', ls='--')
-pl.xlim(expected_f-10/side_day, expected_f+10/side_day)
-
-# %%
-
-# %%
 X = np.empty((5), dtype=complex)
 
 f0_idx = abs(fft_freqs-f0).argmin()
