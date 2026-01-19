@@ -89,20 +89,30 @@ nsid = 50000
 N = nt
 st = np.arange(0,nsid)*2*pi/nsid
 
-stsub=gmst(t.mjd)
-stsub = stsub  + params['ra'] - params['lng']
-isub = np.mod(np.round(stsub*(nsid-1)/24),nsid-1)
-isub = isub.astype(int)
+# stsub=gmst(t.mjd)
+# stsub = stsub  + params['ra'] - params['lng']
+# isub = np.mod(np.round(stsub*(nsid-1)/24),nsid-1)
+# isub = isub.astype(int)
 temp_isub = np.searchsorted(st, gmst(t.mjd), side='left')
 
 # %%
 side_p = 0
 side_c = 0
 for i in range(5):
-    side_p += sidereal.A_p[i]*np.exp(1j*(i-2)*(st + params['ra'] - params['lng']))
-    side_c += sidereal.A_c[i]*np.exp(1j*(i-2)*(st + params['ra'] - params['lng']))
+    side_p += sidereal.A_p[i]*np.exp(1j*(i-2)*(gmst(t.mjd) + params['ra'] - params['lng']))
+    side_c += sidereal.A_c[i]*np.exp(1j*(i-2)*(gmst(t.mjd) + params['ra'] - params['lng']))
 
 reconstruct_amp_mod = sidereal.H_p * side_p + sidereal.H_c * side_c
+
+# %%
+pl.plot(sidereal.amp_modulation)
+pl.plot(reconstruct_amp_mod)
+
+# %%
+phi = gmst(t.mjd[0]) + params['ra'] - params['lng']
+test_A = sidereal.A.copy()
+for i in range(5):
+    test_A[i] = sidereal.A[i] * np.exp(1j*(i-2)*phi)
 
 # %%
 test_Ap = sidereal.A_p.copy()
@@ -114,8 +124,8 @@ for i in range(5):
 test_A = sidereal.H_p*test_Ap + sidereal.H_c*test_Ac
 
 # %%
-pl.plot(np.real(reconstruct_amp_mod[temp_isub-1]))
-pl.plot(sidereal.amp_modulation)
+# pl.plot(st[isub-1], np.real(reconstruct_amp_mod[isub-1]))
+# pl.plot(gmst(t.mjd), sidereal.amp_modulation)
 
 # %%
 fft_freqs = np.fft.fftshift(np.fft.fftfreq(len(sidereal.amp_modulation), d=np.diff(t.gps)[0]))
@@ -129,7 +139,7 @@ X[2] = fft_amps[abs(fft_freqs).argmin()]
 X[3] = fft_amps[abs(fft_freqs-(+1/side_day)).argmin()]
 X[4] = fft_amps[abs(fft_freqs-(+2/side_day)).argmin()]
 
-print(abs(np.dot(X, np.conj(sidereal.A))/np.sum(np.abs(sidereal.A)**2)))
+print(abs(np.dot(X, np.conj(test_A))/np.sum(np.abs(test_A)**2)))
 
 # pl.plot(fft_freqs, abs(fft_amps)**2, 'o')
 # pl.axvline(2/side_day, c='r', ls='--')
@@ -138,6 +148,20 @@ print(abs(np.dot(X, np.conj(sidereal.A))/np.sum(np.abs(sidereal.A)**2)))
 # pl.axvline(-1/side_day, c='r', ls='--')
 # pl.axvline(-2/side_day, c='r', ls='--')
 # pl.xlim(-10/side_day, 10/side_day)
+
+# %%
+
+# %%
+
+# %%
+sidereal.A
+
+# %%
+temp_A
+
+# %%
+X
+
 
 # %%
 def compute_5comp_num(times, data, f_ref):
@@ -162,6 +186,45 @@ compute_5comp_num(t.gps, sidereal.amp_modulation, 0) / len(sidereal.amp_modulati
 
 # %%
 sidereal.A
+
+# %% [markdown]
+# ## Test
+
+# %%
+st
+
+# %%
+nsid = 500000
+st = np.arange(0,nsid)*2*pi/nsid
+test = 0
+for i in range(5):
+    test += sidereal.A_p[i]*np.exp(1j*(i-2)*st)
+
+# %%
+fft_freqs = np.fft.fftshift(np.fft.fftfreq(len(test), d=np.diff(st)[0]))
+fft_amps = np.fft.fftshift(np.fft.fft(test))/len(test)
+
+X = np.empty((5), dtype=complex)
+
+X[0] = fft_amps[abs(fft_freqs-(-2/side_day)).argmin()]
+X[1] = fft_amps[abs(fft_freqs-(-1/side_day)).argmin()]
+X[2] = fft_amps[abs(fft_freqs).argmin()]
+X[3] = fft_amps[abs(fft_freqs-(+1/side_day)).argmin()]
+X[4] = fft_amps[abs(fft_freqs-(+2/side_day)).argmin()]
+
+print(abs(np.dot(X, np.conj(sidereal.A_p))/np.sum(np.abs(sidereal.A_p)**2)))
+
+# %%
+np.diff(fft_freqs)[0]
+
+# %%
+pl.plot(fft_freqs, abs(fft_amps)**2, 'o')
+pl.axvline(2/side_day, c='r', ls='--')
+pl.axvline(1/side_day, c='r', ls='--')
+pl.axvline(0, c='r', ls='--')
+pl.axvline(-1/side_day, c='r', ls='--')
+pl.axvline(-2/side_day, c='r', ls='--')
+pl.xlim(-10/side_day, 10/side_day)
 
 # %% [markdown]
 # ## With signal
