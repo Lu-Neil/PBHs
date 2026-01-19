@@ -13,10 +13,6 @@
 # ---
 
 # %%
-# %load_ext autoreload
-# %autoreload 2
-
-# %%
 import numpy as np
 import finufft
 import matplotlib.pyplot as pl
@@ -84,7 +80,7 @@ def optimize_func(log_offset, f0, beta, target_power = 0.9):
 
 # %%
 f0 = 20
-M = 1e-1
+M = 1e-3
 Mc = M * 2e30
 f_max = 50
 beta = const*f0**(8/3)*Mc**(5/3)
@@ -115,7 +111,7 @@ temp1 = integrate.quad(integrated_func_without_asd, 0, T_obs, args = (f0, M))[0]
 print(temp0/temp1)
 
 # %%
-offset_arr = np.logspace(-8, -4, 20)
+offset_arr = np.logspace(-12, -8, 20)
 analytical_arr = analytical_loss(offset_arr, f0, beta)
 step_size = optimize.root_scalar(optimize_func, args=(f0, beta),
               bracket=[-12, -5], 
@@ -137,22 +133,6 @@ pl.legend()
 pl.xlabel(r"$\Delta \beta$")
 pl.ylabel("Power recovered")
 
-# %%
-# print(np.log10(beta))
-# print(step_size.root)
-temp_T = min(T_obs, t_max_calc(f0, beta, 200))
-dephasing = phi_err(f0, beta, step_size.root, temp_T)
-total_phase = phi_calc(f0, beta, temp_T)
-print(f"{dephasing/total_phase:.2e}")
-
-# %%
-resampler = Resampler()
-resampler.timeseries = signal
-resampler.resampled_time = tau_calc(beta+10**step_size.root, t)
-resampler.nufft_real()
-pl.plot(resampler.freqs, resampler.power_normalized, 'o')
-pl.xlim(f0 - 10, f0 + 10)
-
 
 # %%
 def phi_err(f0, beta, offset, t):
@@ -173,52 +153,11 @@ pl.plot(t, temp_phi0 - temp_phi1)
 # pl.plot(t, tau_calc(beta+10**step_size.root, t) - tau_calc(beta+10**step_size.root, 0))
 pl.plot(t, phi_err(f0, beta, np.longdouble(10**step_size.root), t))
 
-# %%
-pl.plot(t, tau_calc(beta, t) - tau_calc(beta, 0))
-pl.plot(t, tau_calc(beta+10**step_size.root, t) - tau_calc(beta+10**step_size.root, 0))
-pl.plot(t, phi_err(f0, beta, np.longdouble(10**step_size.root), t))
-
-# %% [markdown]
-# ## Steps through beta space
 
 # %%
-
-# %%
-
-# %%
-f0 = 20
-T_obs = 300*day
-
-M_start = 1e-1
-beta_start = beta_calc(f0, M_start)
-M_end = 1e-2
-beta_end = beta_calc(f0, M_end)
-
-# %%
-beta_start
-
-# %%
-step_size = optimize.root_scalar(optimize_func, args=(f0, beta_start),
-              bracket=[-12, -5], 
-              method='brentq')
-step_size
-
-# %%
-beta_arr = [beta_start]
-while beta_arr[-1] > beta_end:
-    step_size = optimize.root_scalar(optimize_func, args=(f0, beta_arr[-1]),
-                  bracket=[-13, -5], 
-                  method='brentq')
-    beta_arr.append(beta_arr[-1] - 10**step_size.root)
-
-# %%
-pl.semilogy(beta_arr, 'o')
-
-# %%
-len(beta_arr)
-
-
-# %%
+# pl.plot(t, tau_calc(beta, t) - tau_calc(beta, 0))
+# pl.plot(t, tau_calc(beta+10**step_size.root, t) - tau_calc(beta+10**step_size.root, 0))
+# pl.plot(t, phi_err(f0, beta, np.longdouble(10**step_size.root), t))
 
 # %% [markdown]
 # ## Theory verification
@@ -327,15 +266,21 @@ loss_frac(f0, beta, numerical_time, T_obs)
 
 # %%
 def tcross_invert(beta, T_obs, loss_frac):
-    temp0 = loss_frac + (1-loss_frac)*(1-8/3*beta*T_obs)**0.5
+    T = min(T_obs, t_max_calc(f0, beta, f_max))
+    temp0 = loss_frac + (1-loss_frac)*(1-8/3*beta*T)**0.5
     temp1 = 1-temp0**2
-    return 3/(8*beta)*temp1
+    tcross = 3/(8*beta)*temp1
+    return tcross
 
 def deltaBeta_invert(beta, f0, tcross, T_obs):
     temp0 = -2/T_obs*(5*beta)/(3*f0)*(1-8/3*beta*tcross)**(3/8)
     temp1 = 1+(-1+beta*tcross)/(1-8/3*beta*tcross)
     return temp0 / temp1
 
+
+# %%
+T =30*day
+tcross_invert(beta_end, T, power_loss) / T
 
 # %%
 np.isclose(numerical_time, tcross_invert(beta, T_obs, loss_frac(f0, beta, numerical_time, T_obs)))
@@ -349,28 +294,25 @@ temp_tcross = tcross_invert(beta, T_obs, 0.1)
 temp_deltaBeta = deltaBeta_invert(beta, f0, temp_tcross, T_obs)
 temp_deltaBeta/beta
 
-# %%
-T = 10
-(0.5/T)**(1/4) / (3/T)**(1/4)
-
 # %% [markdown]
 # ## Steps through beta space
 
 # %%
 f0 = 20
-T_temp = 0.5*day
+T_temp = 300*day
 T_obs = min(T_temp, t_max_calc(f0, beta, f_max))
 
 M_start = 1e-5
 beta_start = beta_calc(f0, M_start)
 M_end = 1e-1
 beta_end = beta_calc(f0, M_end)
+power_loss = 0.1
 
 # %%
 beta_arr = [beta_start]
 while beta_arr[-1] < beta_end:
     temp_Tobs = min(T_temp, t_max_calc(f0, beta, f_max))
-    temp_tcross = tcross_invert(beta, temp_Tobs, 0.1)
+    temp_tcross = tcross_invert(beta, temp_Tobs, power_loss)
     temp_deltaBeta = deltaBeta_invert(beta, f0, temp_tcross, temp_Tobs)
     beta_arr.append(beta_arr[-1] + temp_deltaBeta)
 
@@ -382,7 +324,7 @@ idx_grid = np.searchsorted(beta_arr, beta_grid)
 size_grid = np.subtract(idx_grid[0,:,], idx_grid[1,:,:])
 
 # %%
-print('Power loss due to template mismatch = 10%, f0=20')
+print(f'Power loss due to template mismatch = {power_loss*100}%, f0=20')
 pl.contourf(np.log10(mass_space), np.log10(mass_space), np.log10(np.triu(size_grid)))
 pl.colorbar()
 pl.title("log10(templates needed)")
@@ -390,14 +332,44 @@ pl.xlabel("Maximum mass")
 pl.ylabel("Minimum mass")
 
 # %%
+f0 = 20
+T_temp = 3*day
+T_obs = min(T_temp, t_max_calc(f0, beta, f_max))
+
 M_start = 1e-5
+beta_start = beta_calc(f0, M_start)
+M_end = 1e-1
+beta_end = beta_calc(f0, M_end)
+power_loss = 0.10
+
+# %%
+beta_arr = [beta_start]
+while beta_arr[-1] < beta_end:
+    temp_Tobs = min(T_temp, t_max_calc(f0, beta, f_max))
+    temp_tcross = tcross_invert(beta, temp_Tobs, power_loss)
+    temp_deltaBeta = deltaBeta_invert(beta, f0, temp_tcross, temp_Tobs)
+    beta_arr.append(beta_arr[-1] + temp_deltaBeta)
+
+# %%
+print(f'Power loss due to template mismatch = {power_loss*100}%, f0=20')
+pl.contourf(np.log10(mass_space), np.log10(mass_space), np.log10(np.triu(size_grid)))
+pl.colorbar()
+pl.title("log10(templates needed)")
+pl.xlabel("Maximum mass")
+pl.ylabel("Minimum mass")
+
+# %%
+
+# %%
+M_start = 1e-5
+power_loss = 0.90
 beta_start = beta_calc(f0, M_start)
 M_end = 1e-1
 beta_end = beta_calc(f0, M_end)
 beta_arr = [beta_start]
 while beta_arr[-1] < beta_end:
     temp_Tobs = min(T_temp, t_max_calc(f0, beta, f_max))
-    temp_tcross = tcross_invert(beta, temp_Tobs, 0.01)
+    temp_tcross = tcross_invert(beta, temp_Tobs, power_loss)
     temp_deltaBeta = deltaBeta_invert(beta, f0, temp_tcross, temp_Tobs)
     beta_arr.append(beta_arr[-1] + temp_deltaBeta)
 
@@ -409,7 +381,7 @@ idx_grid = np.searchsorted(beta_arr, beta_grid)
 size_grid = np.subtract(idx_grid[0,:,], idx_grid[1,:,:])
 
 # %%
-print('Power loss due to template mismatch = 1%, f0=20')
+print(f'Power loss due to template mismatch = {power_loss*100}%, f0=20')
 pl.contourf(np.log10(mass_space), np.log10(mass_space), np.log10(np.triu(size_grid)))
 pl.colorbar()
 pl.title("log10(templates needed)")
@@ -426,6 +398,16 @@ def deltaBeta_dephasing(beta, f0, T_obs, dphi=np.pi/4):
     temp1 = 1+(-1+beta*T_obs)/((1-8/3*beta*T_obs)**(3/8))
     return temp0 / temp1
 
+
+# %%
+f0 = 20
+T_temp = 0.5*day
+T_obs = min(T_temp, t_max_calc(f0, beta, f_max))
+
+M_start = 1e-5
+beta_start = beta_calc(f0, M_start)
+M_end = 1e-1
+beta_end = beta_calc(f0, M_end)
 
 # %%
 beta_space = np.logspace(np.log10(beta_start), np.log10(beta_end), 100)
@@ -470,9 +452,5 @@ pl.loglog(mass_space, abs(results_arr1), label="Power condition")
 pl.xlabel("Mass")
 pl.ylabel(r"$\Delta \beta / \beta$")
 pl.legend()
-
-# %%
-
-# %%
 
 # %%

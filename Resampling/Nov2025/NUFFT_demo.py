@@ -167,7 +167,7 @@ t = (np.arange(nt)/f_signal)
 
 for i in range(100):
     f0 = np.random.uniform(1, 2) 
-    df0 = 10**np.random.uniform(-3, -1) * 2e30
+    Mc = 10**np.random.uniform(-3, -1) * 2e30
     beta = const*f0**(8/3)*Mc**(5/3)
     phi = 6*np.pi/5*f0*(1-8./3.*(beta)*t)**(5/8)/beta
     tau = 6*np.pi/5*(1-8/3*beta*t)**(5/8)/beta
@@ -187,5 +187,7 @@ pl.xlabel("Distance from bin centre")
 pl.ylabel("Normalized power")
 pl.legend()
 pl.title("PBH signal")
+
+# %%
 
 # %%

@@ -17,309 +17,237 @@ import numpy as np
 import matplotlib.pyplot as pl
 from five_vec import five_vec
 from resampler import Resampler
+from astropy.time import Time
+
+pi = np.pi
+
 
 # %% [markdown]
 # ## 5 vector for a monochromatic signal
 
 # %%
-pi = np.pi
-f0 = 2
-# We define a shorter sidereal day to verify the code without requiring large memory usage
-side_day = 2**10 #86164.09053083288
+def gmst(t):
+    """
+    %GMST  Greenwich mean sidereal time (in rad)
+    %
+    %   t   time (in JD or mjd)
+    %
+    % add longitude in hours (deg/15) to have local sidereal time 
+    Adapted from Snag v2.0 by Sergio Frasca
+    """
+    t = np.asarray(t)
+    jd = np.where(t > 1000000, t + 2400000.5, t)
+    
+    jd0=np.floor(jd-0.5)+0.5;
+    h=(jd-jd0)*24;
+    
+    d=jd-2451545;
+    d0=jd0-2451545;
+    T=d/36525;
+    
+    st=np.mod(6.697374558+0.06570982441908*d0+1.00273790935*h+0.000026*T**2,24)
+    return st/12*np.pi
+
+
+# %%
+# We can define a shorter sidereal day to verify the code without requiring large memory usage
+side_day = 86164.09053083288
 number_of_days = 2 # needs to be integer
 T_obs = number_of_days*side_day #need to ensure this is integer of t_side
 
+f0 = 1/side_day * 100000
+omega0 = 2*np.pi*f0
+gamma = 0
+
+ref_time = Time('2019-04-03')
 f_signal = 8*f0
 nt = round(f_signal*T_obs)
-t = np.arange(nt)/f_signal
-
-#Monochromatic signal
-mono = np.exp(1j*2*pi*f0*t)
-
-# %%
-mono_freqs = np.fft.fftshift(np.fft.fftfreq(len(mono), np.diff(t)[0]))
-mono_amps = np.fft.fftshift(np.fft.fft(mono))/len(mono)
-
-# %%
-pl.plot(mono_freqs, abs(mono_amps)**2, 'o')
-pl.xlim(f0-0.1, f0+0.1)
+t = ref_time.gps + np.arange(nt)/f_signal
+t = Time(t, format="gps", scale="utc")
+t_space = t.gps - t.gps[0]
+monochromatic = 2*np.exp(1j*(omega0*t_space+gamma))
 
 # %%
 # This uses five_vec.py to compute the doppler modulation of the signal
-# params = dict(ra = 0.5, dec = 0.5, eta = 0.2, psi = 0.3, lat = 0.5, 
-#               lng = 0.5, az = 0.5, side_day=side_day)
-params = dict(ra = 0.5, #np.random.uniform(0, 2*np.pi), 
-              dec = 0.5, #np.random.uniform(-np.pi/2, np.pi/2), 
-              eta = 0.1, #np.random.uniform(-1, 1), 
-              psi = 0.1, #np.random.uniform(0, 2*np.pi), 
+params = dict(ra = 1.783725740253688e+02/180*np.pi, #np.random.uniform(0, 2*np.pi), 
+              dec = -33.436602425196504/180*np.pi, #np.random.uniform(-np.pi/2, np.pi/2), 
+              eta = 0.16, #np.random.uniform(-1, 1), 
+              psi = 25.4390/180*np.pi, #np.random.uniform(0, 2*np.pi), 
               lat = 46.4550/180*np.pi, #np.random.uniform(-np.pi/2, np.pi/2), 
-              lng = 240.5920/180*np.pi, #np.random.uniform(-np.pi, np.pi) 
+              lng = 3, #240.5920/180*np.pi, #np.random.uniform(-np.pi, np.pi) 
               az = 144.0006/180*np.pi, #np.random.uniform(0, 2*np.pi), 
               side_day=side_day
              )
 sidereal = five_vec(**params)
 sidereal.compute_H()
-sidereal.compute_A(t)
+sidereal.compute_A(gmst(t.mjd))
 sidereal.compute_5vec()
 amp_modulation = sidereal.amp_modulation
 
 # %%
-params['az']
+nsid = 50000
+N = nt
+st = np.arange(0,nsid)*2*pi/nsid
+
+stsub=gmst(t.mjd)
+stsub = stsub  + params['ra'] - params['lng']
+isub = np.mod(np.round(stsub*(nsid-1)/24),nsid-1)
+isub = isub.astype(int)
+temp_isub = np.searchsorted(st, gmst(t.mjd), side='left')
 
 # %%
-signal = mono*amp_modulation
-fft_freqs = np.fft.fftshift(np.fft.fftfreq(len(signal), np.diff(t)[0]))
-fft_amps = np.fft.fftshift(np.fft.fft(signal))/len(signal)
+side_p = 0
+side_c = 0
+for i in range(5):
+    side_p += sidereal.A_p[i]*np.exp(1j*(i-2)*(st + params['ra'] - params['lng']))
+    side_c += sidereal.A_c[i]*np.exp(1j*(i-2)*(st + params['ra'] - params['lng']))
+
+reconstruct_amp_mod = sidereal.H_p * side_p + sidereal.H_c * side_c
 
 # %%
-pl.plot(signal)
+test_Ap = sidereal.A_p.copy()
+test_Ac = sidereal.A_c.copy()
+for i in range(5):
+    test_Ap[i] = sidereal.A_p[i]*np.exp(1j*(i-2)*(params['ra'] - params['lng']))
+    test_Ac[i] = sidereal.A_c[i]*np.exp(1j*(i-2)*(params['ra'] - params['lng']))
+
+test_A = sidereal.H_p*test_Ap + sidereal.H_c*test_Ac
 
 # %%
-# We verify that the modulated waveform has the distinctive five peaks expected
-expected_f = fft_freqs[abs(fft_freqs-f0).argmin()]
-pl.plot(fft_freqs, abs(fft_amps)**2, 'o')
-pl.axvline(expected_f-2/side_day, c='r', ls='--')
-pl.axvline(expected_f-1/side_day, c='r', ls='--')
-pl.axvline(expected_f, c='r', ls='--')
-pl.axvline(expected_f+1/side_day, c='r', ls='--')
-pl.axvline(expected_f+2/side_day, c='r', ls='--')
-pl.xlim(expected_f-10/side_day, expected_f+10/side_day)
+pl.plot(np.real(reconstruct_amp_mod[temp_isub-1]))
+pl.plot(sidereal.amp_modulation)
 
 # %%
-fft_freqs = np.fft.fftshift(np.fft.fftfreq(len(amp_modulation), np.diff(t)[0]))
-fft_amps = np.fft.fftshift(np.fft.fft(amp_modulation))/len(amp_modulation)
+fft_freqs = np.fft.fftshift(np.fft.fftfreq(len(sidereal.amp_modulation), d=np.diff(t.gps)[0]))
+fft_amps = np.fft.fftshift(np.fft.fft(sidereal.amp_modulation))/len(sidereal.amp_modulation)
 
-# We verify that the modulated waveform has the distinctive five peaks expected
-expected_f = 0
-pl.plot(fft_freqs, abs(fft_amps)**2, 'o')
-pl.axvline(expected_f-2/side_day, c='r', ls='--')
-pl.axvline(expected_f-1/side_day, c='r', ls='--')
-pl.axvline(expected_f, c='r', ls='--')
-pl.axvline(expected_f+1/side_day, c='r', ls='--')
-pl.axvline(expected_f+2/side_day, c='r', ls='--')
-pl.xlim(expected_f-10/side_day, expected_f+10/side_day)
-
-# %%
-
-# %%
 X = np.empty((5), dtype=complex)
 
-f0_idx = abs(fft_freqs-f0).argmin()
-X[0] = fft_amps[f0_idx-2*number_of_days]
-X[1] = fft_amps[f0_idx-number_of_days]
-X[2] = fft_amps[f0_idx]
-X[3] = fft_amps[f0_idx+number_of_days]
-X[4] = fft_amps[f0_idx+2*number_of_days]
+X[0] = fft_amps[abs(fft_freqs-(-2/side_day)).argmin()]
+X[1] = fft_amps[abs(fft_freqs-(-1/side_day)).argmin()]
+X[2] = fft_amps[abs(fft_freqs).argmin()]
+X[3] = fft_amps[abs(fft_freqs-(+1/side_day)).argmin()]
+X[4] = fft_amps[abs(fft_freqs-(+2/side_day)).argmin()]
+
+print(abs(np.dot(X, np.conj(sidereal.A))/np.sum(np.abs(sidereal.A)**2)))
+
+# pl.plot(fft_freqs, abs(fft_amps)**2, 'o')
+# pl.axvline(2/side_day, c='r', ls='--')
+# pl.axvline(1/side_day, c='r', ls='--')
+# pl.axvline(0, c='r', ls='--')
+# pl.axvline(-1/side_day, c='r', ls='--')
+# pl.axvline(-2/side_day, c='r', ls='--')
+# pl.xlim(-10/side_day, 10/side_day)
 
 # %%
-# Here we compute the five vector statistic and check how much power it recovers
-estimator = abs(np.dot(X, np.conj(sidereal.A))/np.sum(np.abs(sidereal.A)**2))
-print(estimator)
-
-# %%
-results_arr = []
-distance_arr = []
-
-for i in range(100):
-    f0 = np.random.uniform(1, 2)    
-    mono = np.exp(1j*2*pi*f0*t)
-    params = dict(ra = 0.5, #np.random.uniform(0, 2*np.pi), 
-                  dec = 0.5, #np.random.uniform(-np.pi/2, np.pi/2), 
-                  eta = 0.5, #np.random.uniform(-1, 1), 
-                  psi = 0.5, #np.random.uniform(0, 2*np.pi), 
-                  lat = 46.4550/180*np.pi, #np.random.uniform(-np.pi/2, np.pi/2), 
-                  lng = 240.5920/180*np.pi, #np.random.uniform(-np.pi, np.pi)
-                  az = 144.0006/180*np.pi, #np.random.uniform(0, 2*np.pi), 
-                  side_day = side_day
-                 )
-    """       
-    name: 'ligoh'
-    lat: 46.4550
-    long: 240.5920
-    azim: 144.0006
-    height: 142.5000"""
-    sidereal = five_vec(**params)
-    sidereal.compute_H()
-    sidereal.compute_A(t)
-    sidereal.compute_5vec()
-    amp_modulation = sidereal.amp_modulation
-
+def compute_5comp_num(times, data, f_ref):
+    f_side = 1/side_day
+    freqs = f_ref + np.arange(-2, 3)*f_side
+    dt = np.diff(times)[0]
+    A = np.zeros(5, dtype=complex)
     
-    signal = mono*amp_modulation
-    
-    fft_freqs = np.fft.fftshift(np.fft.fftfreq(len(signal), np.diff(t)[0]))
-    fft_amps = np.fft.fftshift(np.fft.fft(signal))/len(signal)
-    f0_idx = abs(fft_freqs-f0).argmin()
-    
-    X = np.empty((5), dtype=complex)
-    X[0] = fft_amps[f0_idx-2*number_of_days]
-    X[1] = fft_amps[f0_idx-number_of_days]
-    X[2] = fft_amps[f0_idx]
-    X[3] = fft_amps[f0_idx+number_of_days]
-    X[4] = fft_amps[f0_idx+2*number_of_days]
-    
-    estimator = abs(np.dot(X, np.conj(sidereal.A))/np.sum(np.abs(sidereal.A)**2))
-    distance = min(abs(fft_freqs-f0))/np.diff(fft_freqs)[0]
-    results_arr.append(estimator)
-    distance_arr.append(distance)
+    for i in range(5):
+        A[i] = np.sum(data * np.exp(-1j*2*np.pi*freqs[i]*times))*dt
+    return A
+
 
 # %%
-pl.plot(distance_arr, results_arr, 'o')
-pl.plot(distance_arr, np.sinc(distance_arr)**2, 'o')
+X
 
 # %%
-f0 = np.random.uniform(1, 2)    
-mono = np.exp(1j*2*pi*f0*t)
-params = dict(ra = 0.5, #np.random.uniform(0, 2*np.pi), 
-              dec = 0.5, #np.random.uniform(-np.pi/2, np.pi/2), 
-              eta = 0.5, #np.random.uniform(-1, 1), 
-              psi = 0.5, #np.random.uniform(0, 2*np.pi), 
-              lat = 46.4550/180*np.pi, #np.random.uniform(-np.pi/2, np.pi/2), 
-              lng = 240.5920/180*np.pi, #np.random.uniform(-np.pi, np.pi)
-              az = 144.0006/180*np.pi, #np.random.uniform(0, 2*np.pi), 
-             )
-"""       
-name: 'ligoh'
-lat: 46.4550
-long: 240.5920
-azim: 144.0006
-height: 142.5000"""
-sidereal = five_vec(**params)
-sidereal.compute_H()
-sidereal.compute_A(t)
-sidereal.compute_5vec()
-amp_modulation = sidereal.amp_modulation
-eta = params['eta']
-cos_iota = (-1+np.sqrt(1-eta**2))/(eta)
-H0 = np.sqrt((1+6*cos_iota**2+cos_iota**4)/4)
-
-signal = H0*mono*amp_modulation
-
-fft_freqs = np.fft.fftshift(np.fft.fftfreq(len(signal), np.diff(t)[0]))
-fft_amps = np.fft.fftshift(np.fft.fft(signal))/len(signal)
-f0_idx = abs(fft_freqs-f0).argmin()
-
-X = np.empty((5), dtype=complex)
-X[0] = fft_amps[f0_idx-2*number_of_days]
-X[1] = fft_amps[f0_idx-number_of_days]
-X[2] = fft_amps[f0_idx]
-X[3] = fft_amps[f0_idx+number_of_days]
-X[4] = fft_amps[f0_idx+2*number_of_days]
-
-estimator = abs(np.dot(X, np.conj(sidereal.A))/np.sum(np.abs(sidereal.A)**2))
-distance = min(abs(fft_freqs-f0))/np.diff(fft_freqs)[0]
+np.sum(sidereal.amp_modulation * np.exp(-1j*2*np.pi*0*t.gps))*np.diff(t.gps)[0] / len(sidereal.amp_modulation)
 
 # %%
-estimator
+compute_5comp_num(t.gps, sidereal.amp_modulation, 0) / len(sidereal.amp_modulation)
 
 # %%
-pl.plot(abs(sidereal.A_c)**2)
-
-# %%
-print(resampler.freqs[f0_idx-2*number_of_days])
-print(expected_f-2*np.pi*2/side_day)
-
-# %%
-expected_f = resampler.freqs[f0_idx]
-pl.plot(resampler.freqs, resampler.power_normalized, 'o')
-pl.axvline(expected_f-2*np.pi*2/side_day, c='r', ls='--')
-pl.axvline(expected_f-2*np.pi*1/side_day, c='r', ls='--')
-pl.axvline(expected_f, c='r', ls='--')
-pl.axvline(expected_f+2*np.pi*1/side_day, c='r', ls='--')
-pl.axvline(expected_f+2*np.pi*2/side_day, c='r', ls='--')
-pl.xlim(expected_f-50/side_day, expected_f+50/side_day)
-
-# %%
-recovery_arr = []
-distance_arr = []
-
-for i in range(100):
-    f0 = np.random.uniform(1, 2) # rad/s
-    phi = f0*t
-    signal = np.exp(-1j*phi) # amp_modulation * 
-    
-    resampler = Resampler()
-    resampler.timeseries = signal
-    resampler.resampled_time = t
-    resampler.nufft()
-
-    X = np.empty((5), dtype=complex)
-    f0_idx = abs(resampler.freqs-f0).argmin()
-    X[0] = resampler.weights_normalized[f0_idx-2*number_of_days]
-    X[1] = resampler.weights_normalized[f0_idx-number_of_days]
-    X[2] = resampler.weights_normalized[f0_idx]
-    X[3] = resampler.weights_normalized[f0_idx+number_of_days]
-    X[4] = resampler.weights_normalized[f0_idx+2*number_of_days]
-
-    estimator = abs(np.dot(X, np.conj(sidereal.A))/np.sum(np.abs(sidereal.A)**2))
-    
-    recovery_arr.append(max(resampler.power_normalized))
-    distance_arr.append(min(abs(resampler.freqs-f0))/np.diff(resampler.freqs)[0])
-
-# %%
-pl.plot(distance_arr, recovery_arr, 'o')
-pl.plot(distance_arr, np.sinc(distance_arr)**2, 'o')
+sidereal.A
 
 # %% [markdown]
-# ## PBH signal + amplitude modulation
+# ## With signal
 
 # %%
-from resampler import Resampler
+gmst(t.mjd)
 
 # %%
-c = 3e8
-G = 6.67e-11
-pi = np.pi
-const = 96/5*pi**(8/3)*(G/c**3)**(5/3)
+print(monochromatic)
 
-f0 = 2**3
-Mc = 3e-2* 2e30
-f_max = 2**6
-T_obs = 2**10
-beta = const*f0**(8/3)*Mc**(5/3)
-f_signal = 4*f_max
-side_day = 2**10 #86164.09053083288
-number_of_days = 2 # needs to be integer
-T_obs = number_of_days*side_day #need to ensure this is integer of t_side
+# %%
+mono_freqs = np.fft.fftshift(np.fft.fftfreq(len(t_space), np.diff(t_space)[0]))
+mono_power = abs(np.fft.fftshift(np.fft.fft(monochromatic)/len(monochromatic)))**2
+pl.semilogy(mono_freqs, mono_power, 'o')
+pl.axvline(f0, c='r', ls='--')
+pl.xlim(f0-0.003, f0+0.003)
 
-f_signal = 8*f0
-nt = round(f_signal*T_obs)
-t = np.arange(nt)/f_signal
+# %%
+gmst(t.mjd)
 
-phi = 6*np.pi/5*f0*(1-8./3.*(beta)*t)**(5/8)/beta
-tau = 6*np.pi/5*(1-8/3*beta*t)**(5/8)/beta
-signal = 1*np.exp(-1j*phi)
+# %%
+params = dict(ra = 5, #rad
+            dec = 0.5, #rad
+            eta = 0.5, #[-1,1]
+            psi = 0.5, #rad
+            
+            lat = 0.5, #rad
+            lng = 5, #rad
+            az = 0.5,  #rad
+              side_day=side_day
+             )
 
-# This uses five_vec.py to compute the doppler modulation of the signal
-params = dict(ra = 0.5, dec = 0.5, eta = 0.5, psi = 0.5, lat = 0.5, 
-              lng = 0.5, az = 0.5, side_day=side_day)
 sidereal = five_vec(**params)
 sidereal.compute_H()
-sidereal.compute_A(t)
+sidereal.compute_A(gmst(t.mjd))
 sidereal.compute_5vec()
-amp_modulation = sidereal.amp_modulation
-signal *= amp_modulation
+
+detector = sidereal.amp_modulation*monochromatic
+det_freqs = np.fft.fftshift(np.fft.fftfreq(len(t_space), np.diff(t_space)[0]))
+det_power = abs(np.fft.fftshift(np.fft.fft(detector)/len(detector)))**2
+det_weights = np.fft.fftshift(np.fft.fft(detector)/len(detector))
+pl.plot(det_freqs, det_power, 'o')
+pl.axvline(f0-2/side_day, c='r', ls='--')
+pl.axvline(f0-1/side_day, c='r', ls='--')
+pl.axvline(f0, c='r', ls='--')
+pl.axvline(f0+1/side_day, c='r', ls='--')
+pl.axvline(f0+2/side_day, c='r', ls='--')
+pl.xlim(f0-10/side_day, f0+10/side_day)
 
 # %%
-resampler = Resampler()
-resampler.timeseries = signal
-resampler.resampled_time = tau
-resampler.nufft()
-pl.plot(resampler.freqs, resampler.power_normalized, 'o')
-pl.xlim(f0 - 0.05, f0 + 0.05)
+1/side_day/3 - np.diff(det_freqs)[0]
+
+# %%
+
+# %%
+f0 - det_freqs[abs(det_freqs-f0).argmin()]
 
 # %%
 X = np.empty((5), dtype=complex)
 
-f0_idx = abs(resampler.freqs-f0).argmin()
-X[0] = resampler.weights_normalized[f0_idx-2*number_of_days]
-X[1] = resampler.weights_normalized[f0_idx-number_of_days]
-X[2] = resampler.weights_normalized[f0_idx]
-X[3] = resampler.weights_normalized[f0_idx+number_of_days]
-X[4] = resampler.weights_normalized[f0_idx+2*number_of_days]
+X[0] = det_weights[abs(det_freqs-(f0-2/side_day)).argmin()]
+X[1] = det_weights[abs(det_freqs-(f0-1/side_day)).argmin()]
+X[2] = det_weights[abs(det_freqs-f0).argmin()]
+X[3] = det_weights[abs(det_freqs-(f0+1/side_day)).argmin()]
+X[4] = det_weights[abs(det_freqs-(f0+2/side_day)).argmin()]
+abs(np.dot(X, np.conj(sidereal.A))/np.sum(np.abs(sidereal.A)**2))
 
 # %%
-estimator = abs(np.dot(X, np.conj(sidereal.A))/np.sum(np.abs(sidereal.A)**2))
-print(estimator)
+X
+
+# %%
+sidereal.A
+
+# %%
+side_day= 86164.09053083288
+f0 = 1/side_day * 100000
+omega0 = 2*np.pi*f0
+gamma = 0
+side_omega = 2*np.pi/side_day
+t_space = np.arange(0, 2*side_day, 1/(8*f0))
+monochromatic = 2*np.exp(1j*(omega0*t_space+gamma))
+
+mono_freqs = np.fft.fftshift(np.fft.fftfreq(len(t_space), np.diff(t_space)[0]))
+mono_power = abs(np.fft.fftshift(np.fft.fft(monochromatic)/len(monochromatic)))**2
+pl.semilogy(mono_freqs, mono_power, 'o')
+pl.axvline(f0, c='r', ls='--')
+pl.xlim(f0-0.003, f0+0.003)
 
 # %%

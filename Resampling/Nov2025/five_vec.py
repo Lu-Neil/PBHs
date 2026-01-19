@@ -17,7 +17,7 @@ class five_vec(object):
         self.az = kws.get("az", None) #rad
         self.side_day = kws.get("side_day", 86164.09053083288) #s
         
-    def compute_A(self, t) -> None:
+    def compute_A(self, omega_t) -> None:
         c_dec=np.cos(self.dec)
         c_lat=np.cos(self.lat)
         s_dec=np.sin(self.dec)
@@ -44,6 +44,14 @@ class five_vec(object):
         A_p = np.empty((5), dtype=complex)
         A_c = np.empty((5), dtype=complex)
         al=np.exp(-1j*(self.ra-self.lng)) #=e^{-j(\alpha-\beta)} in Eq.(17)-(18)
+        
+        scalar_Aplus = a0+a1c*np.cos(omega_t)+a1s*np.sin(omega_t)+\
+                a2c*np.cos(2*omega_t)+a2s*np.sin(2*omega_t)
+        scalar_Across = b1c*np.cos(omega_t)+b1s*np.sin(omega_t)+\
+                b2c*np.cos(2*omega_t)+b2s*np.sin(2*omega_t)
+        self.scalar_Aplus = scalar_Aplus
+        self.scalar_Across = scalar_Across
+        self.amp_modulation = scalar_Aplus*self.H_p+scalar_Across*self.H_c
 
         A_p[0]=(al**-2)*(a2c+1j*a2s)/2
         A_p[1]=(al**-1)*(a1c+1j*a1s)/2
@@ -53,21 +61,12 @@ class five_vec(object):
 
         A_c[0]=(al**-2)*(b2c+1j*b2s)/2
         A_c[1]=(al**-1)*(b1c+1j*b1s)/2
-        A_c[2]=0
+        A_c[2]=0z
         A_c[3]=(al)*(b1c-1j*b1s)/2
         A_c[4]=(al**2)*(b2c-1j*b2s)/2
         
         self.A_p = A_p
         self.A_c = A_c
-        
-        side_day= self.side_day
-        side_omega = 2*np.pi/side_day
-        
-        scalar_Aplus = a0+a1c*np.cos(side_omega*t)+a1s*np.sin(side_omega*t)+\
-                a2c*np.cos(2*side_omega*t)+a2s*np.sin(2*side_omega*t)
-        scalar_Across = b1c*np.cos(side_omega*t)+b1s*np.sin(side_omega*t)+\
-                b2c*np.cos(2*side_omega*t)+b2s*np.sin(2*side_omega*t)
-        self.amp_modulation = scalar_Aplus*self.H_p+scalar_Across*self.H_c
         
     def compute_H(self, **kws) -> None:
         eta = kws.get("eta", self.eta)
