@@ -61,7 +61,7 @@ class five_vec(object):
 
         A_c[0]=(al**-2)*(b2c+1j*b2s)/2
         A_c[1]=(al**-1)*(b1c+1j*b1s)/2
-        A_c[2]=0z
+        A_c[2]=0
         A_c[3]=(al)*(b1c-1j*b1s)/2
         A_c[4]=(al**2)*(b2c-1j*b2s)/2
         
