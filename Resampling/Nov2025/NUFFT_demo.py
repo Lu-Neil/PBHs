@@ -34,11 +34,16 @@ phi = f0*t
 signal = np.real(1*np.exp(-1j*phi))
 
 # %%
+fft_freqs = np.fft.fftshift(np.fft.fftfreq(len(signal), d=np.diff(t)[0]))
+fft_amps = np.fft.fftshift(np.fft.fft(signal))/len(signal)
+
+# %%
 resampler = Resampler()
 resampler.timeseries = signal
 resampler.resampled_time = t
 resampler.nufft()
 pl.plot(resampler.freqs, resampler.power_normalized, 'o')
+pl.plot(fft_freqs*2*np.pi, abs(fft_amps)**2, 'o')
 pl.xlim(f0 - 10, f0 + 10)
 
 # %%

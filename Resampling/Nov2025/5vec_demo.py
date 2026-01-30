@@ -67,6 +67,7 @@ t = Time(t, format="gps", scale="utc")
 
 # %%
 # This uses five_vec.py to compute the doppler modulation of the signal
+h0 = np.random.uniform(1, 5)
 params = dict(ra = np.random.uniform(0, 2*np.pi), 
               dec = np.random.uniform(-np.pi/2, np.pi/2), 
               eta = np.random.uniform(-1, 1), 
@@ -80,28 +81,22 @@ sidereal = five_vec(**params)
 sidereal.compute_H()
 sidereal.compute_A(gmst(t.mjd))
 sidereal.compute_5vec()
-amp_modulation = sidereal.amp_modulation
-
-# %%
-# params = dict(ra = 1.783725740253688e+02/180*np.pi, #np.random.uniform(0, 2*np.pi), 
-#               dec = -33.436602425196504/180*np.pi, #np.random.uniform(-np.pi/2, np.pi/2), 
-#               eta = 0.16, #np.random.uniform(-1, 1), 
-#               psi = 25.4390/180*np.pi, #np.random.uniform(0, 2*np.pi), 
-#               lat = 46.4550/180*np.pi, #np.random.uniform(-np.pi/2, np.pi/2), 
-#               lng = 3, #240.5920/180*np.pi, #np.random.uniform(-np.pi, np.pi) 
-#               az = 144.0006/180*np.pi, #np.random.uniform(0, 2*np.pi), 
-#               side_day=side_day
-#              )
+amp_modulation = h0 * sidereal.amp_modulation
 
 # %%
 phi = gmst(t.mjd[0]) + params['ra'] - params['lng']
-test_A = sidereal.A.copy()
+A_recovery = sidereal.A.copy()
+Ap_recovery = sidereal.A_p.copy()
+Ac_recovery = sidereal.A_c.copy()
+
 for i in range(5):
-    test_A[i] = sidereal.A[i] * np.exp(1j*(i-2)*phi)
+    A_recovery[i] = sidereal.A[i] * np.exp(1j*(i-2)*phi)
+    Ap_recovery[i] = sidereal.A_p[i] * np.exp(1j*(i-2)*phi)
+    Ac_recovery[i] = sidereal.A_c[i] * np.exp(1j*(i-2)*phi)
 
 # %%
-fft_freqs = np.fft.fftshift(np.fft.fftfreq(len(sidereal.amp_modulation), d=np.diff(t.gps)[0]))
-fft_amps = np.fft.fftshift(np.fft.fft(sidereal.amp_modulation))/len(sidereal.amp_modulation)
+fft_freqs = np.fft.fftshift(np.fft.fftfreq(len(amp_modulation), d=np.diff(t.gps)[0]))
+fft_amps = np.fft.fftshift(np.fft.fft(amp_modulation))/len(amp_modulation)
 
 X = np.empty((5), dtype=complex)
 
@@ -111,7 +106,30 @@ X[2] = fft_amps[abs(fft_freqs).argmin()]
 X[3] = fft_amps[abs(fft_freqs-(+1/side_day)).argmin()]
 X[4] = fft_amps[abs(fft_freqs-(+2/side_day)).argmin()]
 
-print(abs(np.dot(X, np.conj(test_A))/np.sum(np.abs(test_A)**2)))
+h_est = np.dot(X, np.conj(A_recovery))/np.sum(np.abs(A_recovery)**2)
+hp_est = np.dot(X, np.conj(Ap_recovery))/np.sum(np.abs(Ap_recovery)**2)
+hc_est = np.dot(X, np.conj(Ac_recovery))/np.sum(np.abs(Ac_recovery)**2)
+print(h_est)
+print(h0)
+
+# %%
+print(hp_est)
+print(h0 * sidereal.H_p)
+print(hc_est)
+print(h0 * sidereal.H_c)
+
+# %%
+A = np.real(hp_est/h_est * np.conj(hc_est/h_est))
+B = np.imag(hp_est/h_est * np.conj(hc_est/h_est))
+C = np.abs(hp_est/h_est)**2 - np.abs(hc_est/h_est)**2
+
+# %%
+eta_est = (-1 + np.sqrt(1-4*B**2)) / (2*B)
+psi_est = np.arcsin(np.real(hc_est * np.sqrt(1+eta_est**2)))/2 # annoying to check because of quadrature
+
+# %%
+print(eta_est)
+print(params['eta'])
 
 # %%
 t_space = t.gps - t.gps[0]
@@ -137,6 +155,11 @@ X[2] = fft_amps[abs(fft_freqs-f0).argmin()]
 X[3] = fft_amps[abs(fft_freqs-(f0+1/side_day)).argmin()]
 X[4] = fft_amps[abs(fft_freqs-(f0+2/side_day)).argmin()]
 
-print(abs(np.dot(X, np.conj(test_A))/np.sum(np.abs(test_A)**2)))
+print(abs(np.dot(X, np.conj(A_recovery))/np.sum(np.abs(A_recovery)**2)))
+
+# %%
+
+# %% [markdown]
+# ## Recovering injection
 
 # %%
