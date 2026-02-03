@@ -18,6 +18,9 @@ class five_vec(object):
         self.side_day = kws.get("side_day", 86164.09053083288) #s
         
     def compute_A(self, omega_t) -> None:
+        """
+        omega_t is Greenwich mean sidereal time in rad
+        """
         c_dec=np.cos(self.dec)
         c_lat=np.cos(self.lat)
         s_dec=np.sin(self.dec)
@@ -68,6 +71,12 @@ class five_vec(object):
         self.A_p = A_p
         self.A_c = A_c
         
+        # Correct for initial phase
+        phi = omega_t[0] + self.ra - self.lng
+        for i in range(5):
+            self.A_p[i] = self.A_p[i] * np.exp(1j*(i-2)*phi)
+            self.A_c[i] = self.A_c[i] * np.exp(1j*(i-2)*phi)
+        
     def compute_H(self, **kws) -> None:
         eta = kws.get("eta", self.eta)
         psi = kws.get("psi", self.psi)
@@ -76,3 +85,25 @@ class five_vec(object):
         
     def compute_5vec(self) -> None:
         self.A = self.H_p*self.A_p + self.H_c*self.A_c
+
+    def gmst(self, t) -> np.float64:
+        """
+        %GMST  Greenwich mean sidereal time (in rad)
+        %
+        %   t   time (in JD or mjd)
+        %
+        % add longitude in hours (deg/15) to have local sidereal time 
+        Adapted from Snag v2.0 by Sergio Frasca
+        """
+        t = np.asarray(t)
+        jd = np.where(t > 1000000, t + 2400000.5, t)
+        
+        jd0=np.floor(jd-0.5)+0.5;
+        h=(jd-jd0)*24;
+        
+        d=jd-2451545;
+        d0=jd0-2451545;
+        T=d/36525;
+        
+        st=np.mod(6.697374558+0.06570982441908*d0+1.00273790935*h+0.000026*T**2,24)
+        return st/12*np.pi

@@ -36,23 +36,24 @@ class Resampler(object):
         self.freqs = freqs
         self.weights = weights
 
-    def nufft_real(self) -> None:
-        signal = self.timeseries
-        tau = self.resampled_time
-        assert np.isrealobj(signal), "Timeseries is not real"
+    # BE VERY CAREFUL WITH THIS, USES DIFFERENT TAU SIGN CONVENTION + MIGHT HAVE OTHER ISSUES
+    # def nufft_real(self) -> None:
+    #     signal = self.timeseries
+    #     tau = self.resampled_time
+    #     bin_no = len(tau)//2
+    #     assert np.isrealobj(signal), "Timeseries is not real"
 
-        scale = abs((2*np.pi) / (tau[-1] - tau[0]))
-        tau_scaled = scale * abs(tau-tau[0]) - np.pi
+    #     scale = (2*np.pi) / (tau[-1] - tau[0])
+    #     tau_scaled = scale * (tau-tau[0]) - np.pi
         
-        bin_no = len(tau)//2
-        normalisation = bin_no // 2
-        bins = np.arange(bin_no) # no negative frequencies
-        freqs = bins * scale
-        signal_shifted = signal * np.exp(1j * normalisation * tau_scaled)
+    #     bins = np.arange(bin_no) # no negative frequencies
+    #     freqs = bins * scale
+    #     normalisation = bin_no // 2
+    #     signal_shifted = signal * np.exp(-1j * normalisation * tau_scaled) # might be -1j
 
-        weights = finufft.nufft1d1(tau_scaled, signal_shifted, bin_no, isign = 1)
-        self.freqs = freqs
-        self.weights = weights
+    #     weights = finufft.nufft1d1(tau_scaled, signal_shifted, bin_no, isign = -1)
+    #     self.freqs = freqs
+    #     self.weights = weights
 
     @property
     def weights_normalized(self) -> npt.NDArray[np.float64]:
@@ -67,4 +68,7 @@ class Resampler(object):
         # the normalization of a nufft and nufft_real are different because 
         # of their different lengths
         return abs(self.weights/len(self.weights))**2
-    
+
+    @property
+    def freq_in_hz(self) -> npt.NDArray[np.float64]:
+        return self.freqs / (2*np.pi)
