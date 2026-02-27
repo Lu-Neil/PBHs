@@ -71,19 +71,23 @@ class five_vec(object):
         self.A_p = A_p
         self.A_c = A_c
         
-        # Correct for initial phase
-        phi = omega_t[0] + self.ra - self.lng
+        # Correct for initial phase. 
+        # This removes the al term and makes it independent of the initial omega_t value
+        # A \cdot W in Eq. (15)
+        phi = omega_t[0] + self.ra - self.lng # Eq. (13)-(14)
         for i in range(5):
             self.A_p[i] = self.A_p[i] * np.exp(1j*(i-2)*phi)
             self.A_c[i] = self.A_c[i] * np.exp(1j*(i-2)*phi)
         
     def compute_H(self, **kws) -> None:
+        # Eq. (2)-(3)
         eta = kws.get("eta", self.eta)
         psi = kws.get("psi", self.psi)
         self.H_p=np.sqrt(1/(1+eta**2))*(np.cos(2*self.psi)-1j*eta*np.sin(2*self.psi))
         self.H_c=np.sqrt(1/(1+eta**2))*(np.sin(2*self.psi)+1j*eta*np.cos(2*self.psi))
         
     def compute_5vec(self) -> None:
+        # Eq. (16)
         self.A = self.H_p*self.A_p + self.H_c*self.A_c
 
     def gmst(self, t) -> np.float64:

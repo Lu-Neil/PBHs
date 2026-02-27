@@ -27,7 +27,7 @@ pi = np.pi
 t = np.linspace(4*pi,6*pi, int(2**16))
 f0 = 8 # rad/s
 phi = f0*t
-signal = np.real(1*np.exp(-1j*phi))
+signal = 1*np.exp(-1j*phi)
 
 # %%
 fft_freqs = np.fft.fftshift(np.fft.fftfreq(len(signal), d=np.diff(t)[0]))
@@ -38,9 +38,16 @@ resampler = Resampler()
 resampler.timeseries = signal
 resampler.resampled_time = t
 resampler.nufft()
-pl.plot(resampler.freqs, resampler.power_normalized, 'o')
-pl.plot(fft_freqs*2*np.pi, abs(fft_amps)**2, 'o')
-pl.xlim(f0 - 10, f0 + 10)
+pl.plot(resampler.freqs, np.imag(resampler.weights_normalized - fft_amps), 'o')
+# pl.plot(fft_freqs*2*np.pi, abs(fft_amps)**2, 'o')
+# pl.xlim(f0 - 10, f0 + 10)
+
+# %%
+pl.plot(resampler.freqs, np.imag(resampler.weights_normalized), 'o')
+# pl.plot(resampler.freqs, np.imag(fft_amps), 'o')
+
+# %%
+np.allclose(resampler.power_normalized, abs(fft_amps)**2, atol=1e-5)
 
 # %%
 resampler.nufft()
