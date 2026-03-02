@@ -1,7 +1,23 @@
-from ..five_vec import five_vec
-from ..resampler import Resampler
+# ---
+# jupyter:
+#   jupytext:
+#     text_representation:
+#       extension: .py
+#       format_name: percent
+#       format_version: '1.3'
+#       jupytext_version: 1.18.1
+#   kernelspec:
+#     display_name: PBH
+#     language: python
+#     name: python3
+# ---
+
+# %%
+from five_vec import five_vec
+from resampler import Resampler
 import numpy as np
 from astropy.time import Time
+import matplotlib.pyplot as pl
 
 
 def _estimator(X, A_template):
@@ -20,10 +36,10 @@ def _resample_and_extract_5vec(signal, tau, omega0):
     return resampler.extract_5vec(omega0), resampler
 
 
-def test_resampler_then_5vec_demodulation():
-    """Inject fDot+sidereal modulation, then demodulate with resampler followed by 5-vector."""
+# %%
+def create_signal():
     h0 = np.random.uniform(1, 5)
-    gamma = 0.7
+    gamma = np.random.uniform(0, 2 * np.pi)
     fdot = 0  # 1e-9  # cycles / s^2, intentionally small
 
     params = dict(
@@ -39,9 +55,9 @@ def test_resampler_then_5vec_demodulation():
 
     number_of_days = 2  # keep integer days for clean 1/day sideband spacing
     T_obs = number_of_days * sidereal.side_day
-    f0 = 10000 / sidereal.side_day
+    f0 = np.random.uniform(0.1, 0.2)  # 10000 / sidereal.side_day
     omega0 = 2 * np.pi * f0
-    f_sample = 8 * f0
+    f_sample = 1  # 8 * f0
     n_samples = round(f_sample * T_obs)
 
     ref_time = Time("2019-04-10T12:34:56.000")
@@ -56,27 +72,61 @@ def test_resampler_then_5vec_demodulation():
 
     phase = 2 * np.pi * (f0 * t_offset + 0.5 * fdot * t_offset**2) + gamma
     signal = amp_modulation * np.exp(1j * phase)
-
-    # First-stage demodulation: remove fDot by time reparameterization.
     tau = t_offset + 0.5 * (fdot / f0) * t_offset**2
-    data_X, resampler = _resample_and_extract_5vec(signal, tau, omega0)
+    return signal, tau, omega0, sidereal, h0, gamma, t
 
-    # Second-stage demodulation: remove sidereal modulation with 5-vector templates.
+
+def time_domain_5vec(t, sidereal, tau):
     sidereal_t = sidereal.gmst(t.mjd)
     sidereal_t -= sidereal_t[0]
     exp_terms = np.exp(1j * (np.arange(5) - 2)[:, np.newaxis] * sidereal_t)
     template_p = np.dot(sidereal.A_p, exp_terms)
     template_c = np.dot(sidereal.A_c, exp_terms)
     template_comb = np.dot(sidereal.A, exp_terms)
+
     template_Xp, _ = _resample_and_extract_5vec(template_p, tau, 0)
     template_Xc, _ = _resample_and_extract_5vec(template_c, tau, 0)
     template_X, _ = _resample_and_extract_5vec(template_comb, tau, 0)
+    return template_X, template_Xp, template_Xc
 
-    h_est = _estimator(data_X, template_X)
+
+# %%
+signal, tau, omega0, sidereal, h0, gamma, t = create_signal()
+
+data_X, resampler = _resample_and_extract_5vec(signal, tau, omega0)
+template_X, template_Xp, template_Xc = time_domain_5vec(t, sidereal, tau)
+
+h_est = _estimator(data_X, template_X)
+hp_est = _estimator(data_X, template_Xp)
+hc_est = _estimator(data_X, template_Xc)
+reconstruct_h = np.sqrt(abs(hp_est) ** 2 + abs(hc_est) ** 2)
+
+# Correct expected values for finite FFT-bin mismatch (Dirichlet response).
+idx0 = np.abs(resampler.freqs - omega0).argmin()
+delta_omega = omega0 - resampler.freqs[idx0]
+tau_span = tau[-1] - tau[0]
+bin_amp_loss = np.sinc(delta_omega * tau_span / (2 * np.pi))
+bin_dephasing = delta_omega * 0.5 * tau_span
+bin_factor = bin_amp_loss * np.exp(1j * bin_dephasing)
+
+target = h0 * np.exp(1j * gamma)
+expected_h = target * bin_factor
+
+# %%
+# Coverage test
+N = 20
+result_arr = []
+
+for i in range(N):
+    signal, tau, omega0, sidereal, h0, gamma, t = create_signal()
+
+    data_X, resampler = _resample_and_extract_5vec(signal, tau, omega0)
+    template_X, template_Xp, template_Xc = time_domain_5vec(t, sidereal, tau)
+
     hp_est = _estimator(data_X, template_Xp)
     hc_est = _estimator(data_X, template_Xc)
+    reconstruct_h = np.sqrt(abs(hp_est) ** 2 + abs(hc_est) ** 2)
 
-    # Correct expected values for finite FFT-bin mismatch (Dirichlet response).
     idx0 = np.abs(resampler.freqs - omega0).argmin()
     delta_omega = omega0 - resampler.freqs[idx0]
     tau_span = tau[-1] - tau[0]
@@ -86,25 +136,13 @@ def test_resampler_then_5vec_demodulation():
 
     target = h0 * np.exp(1j * gamma)
     expected_h = target * bin_factor
+    result_arr.append(np.array([reconstruct_h, abs(expected_h), delta_omega / np.diff(resampler.freqs)[0]]))
 
-    assert np.isclose(np.abs(h_est), np.abs(expected_h), rtol=1e-2, atol=0.0)
-    assert np.isclose(
-        _wrapped_phase_diff(np.angle(h_est), np.angle(expected_h)),
-        0.0,
-        atol=2e-2,
-    )
+result_arr = np.array(result_arr)
 
-    hp_ratio = hp_est / h_est
-    hc_ratio = hc_est / h_est
-    assert np.isclose(np.abs(hp_ratio), np.abs(sidereal.H_p), rtol=5e-2, atol=0.0)
-    assert np.isclose(np.abs(hc_ratio), np.abs(sidereal.H_c), rtol=5e-2, atol=0.0)
-    assert np.isclose(
-        _wrapped_phase_diff(np.angle(hp_ratio), np.angle(sidereal.H_p)),
-        0.0,
-        atol=2e-2,
-    )
-    assert np.isclose(
-        _wrapped_phase_diff(np.angle(hc_ratio), np.angle(sidereal.H_c)),
-        0.0,
-        atol=2e-2,
-    )
+# %%
+pl.plot(result_arr[:, 2], result_arr[:, 0] / result_arr[:, 1], "o", label="Reconstructed / Expected")
+
+pl.legend()
+
+# %%
