@@ -21,7 +21,7 @@ def _resample_and_extract_5vec(signal, tau, omega0):
 
 
 def _random_params():
-    params = dict(
+    return dict(
         ra=np.random.uniform(0, 2 * np.pi),
         dec=np.random.uniform(-np.pi / 2, np.pi / 2),
         eta=np.random.uniform(-1, 1),
@@ -30,23 +30,38 @@ def _random_params():
         lng=np.random.uniform(-np.pi, np.pi),
         az=np.random.uniform(0, 2 * np.pi),
     )
-    return params
 
 
-def _time_domain_5vec(sidereal, t, tau):
+def _build_gap_mask(n_samples, gap_fraction=0.15):
+    """Create a boolean mask with one contiguous missing-data segment."""
+    mask = np.ones(n_samples, dtype=bool)
+    gap_size = max(1, int(gap_fraction * n_samples))
+    gap_start = np.random.randint(0, n_samples - gap_size + 1)
+    gap_end = gap_start + gap_size
+    mask[gap_start:gap_end] = False
+    return mask, slice(gap_start, gap_end)
+
+
+def _time_domain_5vec(sidereal, t, tau, gap_mask=None):
     sidereal_t = sidereal.gmst(t.mjd)
     sidereal_t -= sidereal_t[0]
     exp_terms = np.exp(1j * (np.arange(5) - 2)[:, np.newaxis] * sidereal_t)
     template_p = np.dot(sidereal.A_p, exp_terms)
     template_c = np.dot(sidereal.A_c, exp_terms)
     template_comb = np.dot(sidereal.A, exp_terms)
+
+    if gap_mask is not None:
+        template_p = np.where(gap_mask, template_p, 0.0)
+        template_c = np.where(gap_mask, template_c, 0.0)
+        template_comb = np.where(gap_mask, template_comb, 0.0)
+
     template_Xp, _ = _resample_and_extract_5vec(template_p, tau, 0)
     template_Xc, _ = _resample_and_extract_5vec(template_c, tau, 0)
     template_X, _ = _resample_and_extract_5vec(template_comb, tau, 0)
     return template_X, template_Xp, template_Xc
 
 
-def _Dirchlet_corrections(resampler, omega0, tau, h0, gamma):
+def _Dirichlet_corrections(resampler, omega0, tau, h0, gamma, gap_mask=None):
     idx0 = np.abs(resampler.freqs - omega0).argmin()
     delta_omega = omega0 - resampler.freqs[idx0]
     tau_span = tau[-1] - tau[0]
@@ -56,102 +71,13 @@ def _Dirchlet_corrections(resampler, omega0, tau, h0, gamma):
 
     if np.isscalar(h0):
         target = h0 * np.exp(1j * gamma)
-    else:
+    elif gap_mask is None:
         target = np.mean(h0) * np.exp(1j * gamma)
-    expected_h = target * bin_factor
-    return expected_h, bin_factor, delta_omega
-
-
-def _create_fDot_signal(f0_setting="midpoint"):
-    params = _random_params()
-    sidereal = five_vec(**params)
-
-    number_of_days = 2  # keep integer days for clean 1/day sideband spacing
-    T_obs = number_of_days * sidereal.side_day
-    f_signal = 1
-    n_samples = round(f_signal * T_obs)
-    t_offset = np.linspace(0, T_obs, n_samples, endpoint=False, dtype=float)
-    t_last = t_offset[-1]
-
-    # Pick f0 so the demodulated carrier lands on a NUFFT bin in tau.
-    h0 = np.random.uniform(1, 5)
-    gamma = np.random.uniform(0, 2 * np.pi)
-    fdot = 1e-9  # cycles / s^2, intentionally small
-    carrier_bin = 20000
-    if f0_setting == "midpoint":
-        f0 = (carrier_bin - 0.5 * fdot * t_last**2) / t_last
-    elif f0_setting == "uniform":
-        f0 = np.random.uniform(0.1, 0.2)
     else:
-        raise Exception("f0_setting error")
-    omega0 = 2 * np.pi * f0
-    assert f0 < f_signal / 2
+        target = np.mean(h0[gap_mask]) * np.exp(1j * gamma)
 
-    ref_time = Time("2019-04-10T12:34:56.000")
-    t_gps = ref_time.gps + t_offset
-    t = Time(t_gps, format="gps", scale="utc")
-
-    sidereal.compute_H()
-    sidereal.compute_A(sidereal.gmst(t.mjd))
-    sidereal.compute_5vec()
-    amp_modulation = h0 * sidereal.amp_modulation
-
-    phase = 2 * np.pi * (f0 * t_offset + 0.5 * fdot * t_offset**2) + gamma
-    signal = amp_modulation * np.exp(1j * phase)
-    tau = t_offset + 0.5 * (fdot / f0) * t_offset**2
-    return signal, tau, omega0, sidereal, h0, gamma, t
-
-
-def _check_fDot_signal(err, f0_setting):
-    signal, tau, omega0, sidereal, h0, gamma, t = _create_fDot_signal(f0_setting=f0_setting)
-    data_X, resampler = _resample_and_extract_5vec(signal, tau, omega0)
-
-    # Second-stage demodulation: remove sidereal modulation with 5-vector templates.
-    template_X, template_Xp, template_Xc = _time_domain_5vec(sidereal, t, tau)
-    h_est = _estimator(data_X, template_X)
-    hp_est = _estimator(data_X, template_Xp)
-    hc_est = _estimator(data_X, template_Xc)
-    hp_ratio = hp_est / h_est
-    hc_ratio = hc_est / h_est
-
-    # Correct expected values for finite FFT-bin mismatch (Dirichlet response).
-    expected_h, _, _ = _Dirchlet_corrections(resampler, omega0, tau, h0, gamma)
-
-    assert np.isclose(np.abs(h_est), np.abs(expected_h), rtol=err, atol=0.0)
-    assert np.isclose(
-        _wrapped_phase_diff(np.angle(h_est), np.angle(expected_h)),
-        0.0,
-        atol=err,
-    )
-
-    assert np.isclose(np.abs(hp_ratio), np.abs(sidereal.H_p), rtol=err, atol=0.0)
-    assert np.isclose(np.abs(hc_ratio), np.abs(sidereal.H_c), rtol=err, atol=0.0)
-    assert np.isclose(
-        _wrapped_phase_diff(np.angle(hp_ratio), np.angle(sidereal.H_p)),
-        0.0,
-        atol=err,
-    )
-    assert np.isclose(
-        _wrapped_phase_diff(np.angle(hc_ratio), np.angle(sidereal.H_c)),
-        0.0,
-        atol=err,
-    )
-
-
-def test_midpoint_fDot_signal():
-    """Signals with a fdot term signal where the f0 is injected at the bin centre."""
-    _check_fDot_signal(err=1e-3, f0_setting="midpoint")
-
-
-def test_uniform_fDot_signal():
-    """Signals with a fdot term signal where the f0 is injected uniformly (instead of at bin centres).
-    Much larger errors because doesn't scale exactly according
-    to the Dirchlet kernel. Not sure why but within 20% in over 95% of simulations.
-    Verified in ..PBH-5vec.ipynb"""
-    _check_fDot_signal(err=2e-1, f0_setting="uniform")
-
-
-# --------------- PBH signal -----------------
+    expected_h = target * bin_factor
+    return expected_h
 
 
 def _create_PBH_signal(f0_setting="midpoint"):
@@ -159,8 +85,7 @@ def _create_PBH_signal(f0_setting="midpoint"):
     const = 96 / 5 * pi ** (8 / 3) * (G / c**3) ** (5 / 3)
     kpc = 3.086e19
     dist = 8 * kpc
-    params = _random_params()
-    sidereal = five_vec(**params)
+    sidereal = five_vec(**_random_params())
 
     number_of_days = 2  # keep integer days for clean 1/day sideband spacing
     T_obs = number_of_days * sidereal.side_day
@@ -172,7 +97,6 @@ def _create_PBH_signal(f0_setting="midpoint"):
     Mc = 10 ** np.random.uniform(-3, -1) * 2e30
 
     # Pick f0 so the demodulated carrier lands on a NUFFT bin in tau.
-    # Does this iteratively, cannot do it analytically because f0 change beta & tau
     if f0_setting == "midpoint":
         carrier_bin = 20000
 
@@ -187,7 +111,7 @@ def _create_PBH_signal(f0_setting="midpoint"):
                 break
             f0 = f0_next
     elif f0_setting == "uniform":
-        f0 = np.random.uniform(0.1, 0.2)  # 10000 / sidereal.side_day
+        f0 = np.random.uniform(0.1, 0.2)
     else:
         raise Exception("f0_setting error")
 
@@ -214,21 +138,33 @@ def _create_PBH_signal(f0_setting="midpoint"):
     return signal, tau, omega0, sidereal, h0, gamma, t
 
 
-def _check_PBH_signal(err, f0_setting):
+def _check_PBH_signal_with_gap(err, f0_setting, gap_fraction=0.15):
     signal, tau, omega0, sidereal, h0, gamma, t = _create_PBH_signal(f0_setting=f0_setting)
+    gap_mask, gap_slice = _build_gap_mask(signal.size, gap_fraction=gap_fraction)
+
+    gap_size = gap_slice.stop - gap_slice.start
+    expected_gap_size = max(1, int(gap_fraction * signal.size))
+    assert gap_size == expected_gap_size
+
+    signal = np.where(gap_mask, signal, 0.0)
     data_X, resampler = _resample_and_extract_5vec(signal, tau, omega0)
 
-    # Second-stage demodulation: remove sidereal modulation with 5-vector templates.
-    template_X, template_Xp, template_Xc = _time_domain_5vec(sidereal, t, tau)
+    template_X, template_Xp, template_Xc = _time_domain_5vec(sidereal, t, tau, gap_mask=gap_mask)
     h_est = _estimator(data_X, template_X)
     hp_est = _estimator(data_X, template_Xp)
     hc_est = _estimator(data_X, template_Xc)
     hp_ratio = hp_est / h_est
     hc_ratio = hc_est / h_est
 
-    # Correct expected values for finite FFT-bin mismatch (Dirichlet response).
-    expected_h, bin_factor, delta_omega = _Dirchlet_corrections(resampler, omega0, tau, h0, gamma)
-    # breakpoint()
+    expected_h = _Dirichlet_corrections(
+        resampler,
+        omega0,
+        tau,
+        h0,
+        gamma,
+        gap_mask=gap_mask,
+    )
+
     assert np.isclose(np.abs(h_est), np.abs(expected_h), rtol=err, atol=0.0)
     assert np.isclose(
         _wrapped_phase_diff(np.angle(h_est), np.angle(expected_h)),
@@ -250,12 +186,11 @@ def _check_PBH_signal(err, f0_setting):
     )
 
 
-def test_midpoint_PBH_signal():
-    """PBH chirp with midpoint-injected f0 (bin-centered in resampled tau)."""
-    _check_PBH_signal(err=1e-3, f0_setting="midpoint")
+def test_midpoint_PBH_signal_w_gap():
+    """PBH chirp with midpoint-injected f0 and a contiguous 15% data gap."""
+    _check_PBH_signal_with_gap(err=1e-3, f0_setting="midpoint", gap_fraction=0.15)
 
 
-def test_uniform_PBH_signal():
-    """PBH chirp with uniformly injected f0 (not bin-centered).
-    Errors can be studied in ..PBH-5vec.ipynb"""
-    _check_PBH_signal(err=2e-1, f0_setting="uniform")
+def test_uniform_PBH_signal_w_gap():
+    """PBH chirp with uniformly injected f0 and a contiguous 15% data gap."""
+    _check_PBH_signal_with_gap(err=2e-1, f0_setting="uniform", gap_fraction=0.15)
