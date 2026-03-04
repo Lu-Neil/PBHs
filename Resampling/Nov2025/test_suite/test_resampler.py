@@ -111,7 +111,7 @@ def test_PBH_signal():
     c, G, pi = 3e8, 6.67e-11, np.pi
     const = 96 / 5 * pi ** (8 / 3) * (G / c**3) ** (5 / 3)
     Mc = 10 ** np.random.uniform(-3, -1) * 2e30
-    f0_injected = np.random.uniform(1, 2)
+    f0_injected = np.random.uniform(0.1, 0.2)
     omega0 = 2 * np.pi * f0_injected
     amp = np.random.uniform(1, 5)
     phase0 = np.random.uniform(0, 2 * np.pi)
