@@ -152,121 +152,17 @@ def test_uniform_fDot_signal():
 
 
 # --------------- PBH signal -----------------
+from importlib import import_module
 
-
-def _create_PBH_signal(f0_setting="midpoint"):
-    c, G, pi = 3e8, 6.67e-11, np.pi
-    const = 96 / 5 * pi ** (8 / 3) * (G / c**3) ** (5 / 3)
-    kpc = 3.086e19
-    dist = 8 * kpc
-    params = _random_params()
-    sidereal = five_vec(**params)
-
-    number_of_days = 2  # keep integer days for clean 1/day sideband spacing
-    T_obs = number_of_days * sidereal.side_day
-    f_signal = 1
-    n_samples = round(f_signal * T_obs)
-    t_offset = np.linspace(0, T_obs, n_samples, endpoint=False, dtype=float)
-    t_last = t_offset[-1]
-
-    Mc = 10 ** np.random.uniform(-3, -1) * 2e30
-
-    # Pick f0 so the demodulated carrier lands on a NUFFT bin in tau.
-    # Does this iteratively, cannot do it analytically because f0 change beta & tau
-    if f0_setting == "midpoint":
-        carrier_bin = 20000
-
-        def _tau_span(f0_local):
-            beta_local = const * f0_local ** (8 / 3) * Mc ** (5 / 3)
-            return (3 / (5 * beta_local)) * (1 - (1 - 8 / 3 * beta_local * t_last) ** (5 / 8))
-
-        f0 = carrier_bin / t_last
-        for _ in range(10):
-            f0_next = carrier_bin / _tau_span(f0)
-            if np.isclose(f0_next, f0, rtol=0.0, atol=1e-14):
-                break
-            f0 = f0_next
-    elif f0_setting == "uniform":
-        f0 = np.random.uniform(0.1, 0.2)  # 10000 / sidereal.side_day
-    else:
-        raise Exception("f0_setting error")
-
-    omega0 = 2 * np.pi * f0
-    assert f0 < f_signal / 2
-
-    beta = const * f0 ** (8 / 3) * Mc ** (5 / 3)
-    f = f0 * (1 - 8 / 3 * beta * t_offset) ** (-3 / 8)
-    gamma = np.random.uniform(0, 2 * np.pi)
-    h0 = 4 / dist * (G * Mc / (c**2)) ** (5 / 3) * (np.pi * f / c) ** (2 / 3)
-    phi = -6 * pi / 5 * f0 * (1 - 8 / 3 * beta * t_offset) ** (5 / 8) / beta
-
-    ref_time = Time("2019-04-10T12:34:56.000")
-    t_gps = ref_time.gps + t_offset
-    t = Time(t_gps, format="gps", scale="utc")
-
-    sidereal.compute_H()
-    sidereal.compute_A(sidereal.gmst(t.mjd))
-    sidereal.compute_5vec()
-
-    signal = h0 * sidereal.amp_modulation * np.exp(1j * (phi - phi[0] + gamma))
-    tau = -(3 / (5 * beta)) * (1 - 8 / 3 * beta * t_offset) ** (5 / 8)
-    tau -= tau[0]
-    return signal, tau, omega0, sidereal, h0, gamma, t
-
-
-def _check_PBH_signal(err, f0_setting):
-    signal, tau, omega0, sidereal, h0, gamma, t = _create_PBH_signal(f0_setting=f0_setting)
-    data_X, resampler = _resample_and_extract_5vec(signal, tau, omega0)
-
-    # Second-stage demodulation: remove sidereal modulation with 5-vector templates.
-    template_X, template_Xp, template_Xc = _time_domain_5vec(sidereal, t, tau)
-    h_est = _estimator(data_X, template_X)
-    hp_est = _estimator(data_X, template_Xp)
-    hc_est = _estimator(data_X, template_Xc)
-    hp_ratio = hp_est / h_est
-    hc_ratio = hc_est / h_est
-
-    # Correct expected values for finite FFT-bin mismatch (Dirichlet response).
-    expected_h, bin_factor, delta_omega = _Dirchlet_corrections(resampler, omega0, tau, h0, gamma)
-    # breakpoint()
-    assert np.isclose(np.abs(h_est), np.abs(expected_h), rtol=err, atol=0.0)
-    assert np.isclose(
-        _wrapped_phase_diff(np.angle(h_est), np.angle(expected_h)),
-        0.0,
-        atol=err,
-    )
-
-    assert np.isclose(np.abs(hp_ratio), np.abs(sidereal.H_p), rtol=err, atol=0.0)
-    assert np.isclose(np.abs(hc_ratio), np.abs(sidereal.H_c), rtol=err, atol=0.0)
-    assert np.isclose(
-        _wrapped_phase_diff(np.angle(hp_ratio), np.angle(sidereal.H_p)),
-        0.0,
-        atol=err,
-    )
-    assert np.isclose(
-        _wrapped_phase_diff(np.angle(hc_ratio), np.angle(sidereal.H_c)),
-        0.0,
-        atol=err,
-    )
-    return np.array(
-        [
-            delta_omega / np.diff(resampler.freqs)[0],
-            np.abs(h_est) / np.abs(expected_h) - 1,
-            _wrapped_phase_diff(np.angle(h_est), np.angle(expected_h)),
-            np.abs(hp_ratio) / np.abs(sidereal.H_p) - 1,
-            _wrapped_phase_diff(np.angle(hp_ratio), np.angle(sidereal.H_p)),
-            np.abs(hc_ratio) / np.abs(sidereal.H_c) - 1,
-            _wrapped_phase_diff(np.angle(hc_ratio), np.angle(sidereal.H_c)),
-        ]
-    )
+_utils = import_module("..fiveVec_resampler_utils", package=__package__)
+check_PBH_signal = _utils.check_PBH_signal
 
 
 def test_midpoint_PBH_signal():
-    """PBH chirp with midpoint-injected f0 (bin-centered in resampled tau)."""
-    _check_PBH_signal(err=1e-3, f0_setting="midpoint")
+    """PBH chirp with midpoint-injected f0 and a contiguous 15% data gap."""
+    check_PBH_signal(err=1e-3, f0_setting="midpoint", gap_fraction=0.0)
 
 
 def test_uniform_PBH_signal():
-    """PBH chirp with uniformly injected f0 (not bin-centered).
-    Errors can be studied in ..PBH-5vec.ipynb"""
-    _check_PBH_signal(err=2e-1, f0_setting="uniform")
+    """PBH chirp with uniformly injected f0 and a contiguous 15% data gap."""
+    check_PBH_signal(err=2e-1, f0_setting="uniform", gap_fraction=0.0)
