@@ -8,6 +8,12 @@ def _estimator(X, A_template):
     return np.dot(X, np.conj(A_template)) / np.sum(np.abs(A_template) ** 2)
 
 
+def _joint_estimator(data_X, template_Xp, template_Xc):
+    A = np.column_stack([template_Xp, template_Xc])  # shape (5,2), complex
+    hp_est, hc_est = np.linalg.lstsq(A, data_X, rcond=None)[0]
+    return hp_est, hc_est
+
+
 def _wrapped_phase_diff(phi_a, phi_b):
     return np.angle(np.exp(1j * (phi_a - phi_b)))
 
@@ -35,7 +41,7 @@ def _random_params():
 def _build_gap_mask(n_samples, gap_fraction=0.15):
     """Create a boolean mask with one contiguous missing-data segment."""
     mask = np.ones(n_samples, dtype=bool)
-    gap_size = max(1, int(gap_fraction * n_samples))
+    gap_size = max(0, int(gap_fraction * n_samples))
     gap_start = np.random.randint(0, n_samples - gap_size + 1)
     gap_end = gap_start + gap_size
     mask[gap_start:gap_end] = False
@@ -143,7 +149,7 @@ def _check_PBH_signal_with_gap(err, f0_setting, gap_fraction=0.15):
     gap_mask, gap_slice = _build_gap_mask(signal.size, gap_fraction=gap_fraction)
 
     gap_size = gap_slice.stop - gap_slice.start
-    expected_gap_size = max(1, int(gap_fraction * signal.size))
+    expected_gap_size = max(0, int(gap_fraction * signal.size))
     assert gap_size == expected_gap_size
 
     signal = np.where(gap_mask, signal, 0.0)
@@ -151,10 +157,10 @@ def _check_PBH_signal_with_gap(err, f0_setting, gap_fraction=0.15):
 
     template_X, template_Xp, template_Xc = _time_domain_5vec(sidereal, t, tau, gap_mask=gap_mask)
     h_est = _estimator(data_X, template_X)
-    hp_est = _estimator(data_X, template_Xp)
-    hc_est = _estimator(data_X, template_Xc)
+    hp_est, hc_est = _joint_estimator(data_X, template_Xp, template_Xc)
     hp_ratio = hp_est / h_est
     hc_ratio = hc_est / h_est
+    h_reconstruct = np.sqrt(abs(hp_est) ** 2 + abs(hc_est) ** 2)
 
     expected_h, bin_factor, delta_omega = _Dirichlet_corrections(
         resampler,
@@ -165,6 +171,7 @@ def _check_PBH_signal_with_gap(err, f0_setting, gap_fraction=0.15):
         gap_mask=gap_mask,
     )
 
+    assert np.isclose(h_reconstruct, np.abs(expected_h), rtol=err, atol=0.0)
     assert np.isclose(np.abs(h_est), np.abs(expected_h), rtol=err, atol=0.0)
     assert np.isclose(
         _wrapped_phase_diff(np.angle(h_est), np.angle(expected_h)),
