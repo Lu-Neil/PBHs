@@ -77,7 +77,7 @@ def _Dirichlet_corrections(resampler, omega0, tau, h0, gamma, gap_mask=None):
         target = np.mean(h0[gap_mask]) * np.exp(1j * gamma)
 
     expected_h = target * bin_factor
-    return expected_h
+    return expected_h, bin_factor, delta_omega
 
 
 def _create_PBH_signal(f0_setting="midpoint"):
@@ -156,7 +156,7 @@ def _check_PBH_signal_with_gap(err, f0_setting, gap_fraction=0.15):
     hp_ratio = hp_est / h_est
     hc_ratio = hc_est / h_est
 
-    expected_h = _Dirichlet_corrections(
+    expected_h, bin_factor, delta_omega = _Dirichlet_corrections(
         resampler,
         omega0,
         tau,

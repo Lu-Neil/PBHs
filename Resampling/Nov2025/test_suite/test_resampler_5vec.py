@@ -248,6 +248,17 @@ def _check_PBH_signal(err, f0_setting):
         0.0,
         atol=err,
     )
+    return np.array(
+        [
+            delta_omega / np.diff(resampler.freqs)[0],
+            np.abs(h_est) / np.abs(expected_h) - 1,
+            _wrapped_phase_diff(np.angle(h_est), np.angle(expected_h)),
+            np.abs(hp_ratio) / np.abs(sidereal.H_p) - 1,
+            _wrapped_phase_diff(np.angle(hp_ratio), np.angle(sidereal.H_p)),
+            np.abs(hc_ratio) / np.abs(sidereal.H_c) - 1,
+            _wrapped_phase_diff(np.angle(hc_ratio), np.angle(sidereal.H_c)),
+        ]
+    )
 
 
 def test_midpoint_PBH_signal():
