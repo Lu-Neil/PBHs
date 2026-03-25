@@ -124,7 +124,7 @@ def _Dirichlet_corrections(resampler, omega0, tau, h0, gamma, gap_mask=None):
     return _expected_carrier_response(resampler, omega0, tau, h0, gamma, gap_mask=gap_mask)
 
 
-def _create_PBH_signal(f0_setting="midpoint", delta_beta=0):
+def _create_PBH_signal(f0_setting="midpoint", delta_beta=0, Mc=None):
     c, G, pi = 3e8, 6.67e-11, np.pi
     const = 96 / 5 * pi ** (8 / 3) * (G / c**3) ** (5 / 3)
     kpc = 3.086e19
@@ -138,7 +138,10 @@ def _create_PBH_signal(f0_setting="midpoint", delta_beta=0):
     t_offset = np.linspace(0, T_obs, n_samples, endpoint=False, dtype=float)
     t_last = t_offset[-1]
 
-    Mc = 10 ** np.random.uniform(-3, -1) * 2e30
+    if Mc is not None:
+        pass
+    else:
+        Mc = 10 ** np.random.uniform(-3, -1) * 2e30
 
     # Pick f0 so the demodulated carrier lands on a NUFFT bin in tau.
     if f0_setting == "midpoint":
