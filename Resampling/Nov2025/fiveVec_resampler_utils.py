@@ -1,5 +1,11 @@
-from five_vec import five_vec
-from resampler import Resampler
+from __future__ import annotations
+
+try:
+    from .five_vec import five_vec
+    from .resampler import Resampler
+except ImportError:
+    from five_vec import five_vec
+    from resampler import Resampler
 import numpy as np
 from astropy.time import Time
 
@@ -38,6 +44,18 @@ def _random_params():
     )
 
 
+def _resolve_tolerances(err, h_mag_err, h_phase_err, ratio_mag_err, ratio_phase_err):
+    if h_mag_err is None:
+        h_mag_err = err
+    if h_phase_err is None:
+        h_phase_err = err
+    if ratio_mag_err is None:
+        ratio_mag_err = err
+    if ratio_phase_err is None:
+        ratio_phase_err = err
+    return h_mag_err, h_phase_err, ratio_mag_err, ratio_phase_err
+
+
 def _build_gap_mask(n_samples, gap_fraction=0.15):
     """Create a boolean mask with one contiguous missing-data segment."""
     mask = np.ones(n_samples, dtype=bool)
@@ -71,14 +89,16 @@ def _detection_stat(template_Xp, template_Xc, hp_est, hc_est):
     return np.sum(np.abs(template_Xp) ** 4) * abs(hp_est) ** 2 + np.sum(np.abs(template_Xc) ** 4) * abs(hc_est) ** 2
 
 
-def _Dirichlet_corrections(resampler, omega0, tau, h0, gamma, gap_mask=None):
+def _sampled_bin_factor(resampler, omega0, tau):
     idx0 = np.abs(resampler.freqs - omega0).argmin()
     delta_omega = omega0 - resampler.freqs[idx0]
-    tau_span = tau[-1] - tau[0]
-    bin_amp_loss = np.sinc(delta_omega * tau_span / (2 * np.pi))
-    bin_dephasing = delta_omega * 0.5 * tau_span
-    bin_factor = bin_amp_loss * np.exp(1j * bin_dephasing)
+    tau_offset = tau - tau[0]
+    bin_factor = np.mean(np.exp(1j * delta_omega * tau_offset))
+    return bin_factor, delta_omega
 
+
+def _expected_carrier_response(resampler, omega0, tau, h0, gamma, gap_mask=None):
+    bin_factor, delta_omega = _sampled_bin_factor(resampler, omega0, tau)
     if np.isscalar(h0):
         target = h0 * np.exp(1j * gamma)
     elif gap_mask is None:
@@ -88,6 +108,11 @@ def _Dirichlet_corrections(resampler, omega0, tau, h0, gamma, gap_mask=None):
 
     expected_h = target * bin_factor
     return expected_h, bin_factor, delta_omega
+
+
+def _Dirichlet_corrections(resampler, omega0, tau, h0, gamma, gap_mask=None):
+    """Backward-compatible alias for the sampled-bin carrier response helper."""
+    return _expected_carrier_response(resampler, omega0, tau, h0, gamma, gap_mask=gap_mask)
 
 
 def _create_PBH_signal(f0_setting="midpoint", delta_beta=0):
@@ -151,7 +176,25 @@ def _create_PBH_signal(f0_setting="midpoint", delta_beta=0):
     return signal, tau, omega0, sidereal, h0, gamma, t
 
 
-def check_PBH_signal(err, f0_setting, gap_fraction=0.15, delta_beta=0):
+def check_PBH_signal(
+    err=None,
+    f0_setting="midpoint",
+    gap_fraction=0.15,
+    delta_beta=0,
+    h_mag_err=None,
+    h_phase_err=None,
+    ratio_mag_err=None,
+    ratio_phase_err=None,
+    check_ratios=True,
+):
+    h_mag_err, h_phase_err, ratio_mag_err, ratio_phase_err = _resolve_tolerances(
+        err,
+        h_mag_err,
+        h_phase_err,
+        ratio_mag_err,
+        ratio_phase_err,
+    )
+
     signal, tau, omega0, sidereal, h0, gamma, t = _create_PBH_signal(f0_setting=f0_setting, delta_beta=delta_beta)
     gap_mask, gap_slice = _build_gap_mask(signal.size, gap_fraction=gap_fraction)
 
@@ -169,7 +212,7 @@ def check_PBH_signal(err, f0_setting, gap_fraction=0.15, delta_beta=0):
     hc_ratio = hc_est / h_est
     h_reconstruct = np.sqrt(abs(hp_est) ** 2 + abs(hc_est) ** 2)
 
-    expected_h, bin_factor, delta_omega = _Dirichlet_corrections(
+    expected_h, _, delta_omega = _expected_carrier_response(
         resampler,
         omega0,
         tau,
@@ -178,26 +221,28 @@ def check_PBH_signal(err, f0_setting, gap_fraction=0.15, delta_beta=0):
         gap_mask=gap_mask,
     )
 
-    assert np.isclose(h_reconstruct, np.abs(expected_h), rtol=err, atol=0.0)
-    assert np.isclose(np.abs(h_est), np.abs(expected_h), rtol=err, atol=0.0)
+    assert np.isclose(h_reconstruct, np.abs(expected_h), rtol=h_mag_err, atol=0.0)
+    assert np.isclose(np.abs(h_est), np.abs(expected_h), rtol=h_mag_err, atol=0.0)
     assert np.isclose(
         _wrapped_phase_diff(np.angle(h_est), np.angle(expected_h)),
         0.0,
-        atol=err,
+        atol=h_phase_err,
     )
 
-    assert np.isclose(np.abs(hp_ratio), np.abs(sidereal.H_p), rtol=err, atol=0.0)
-    assert np.isclose(np.abs(hc_ratio), np.abs(sidereal.H_c), rtol=err, atol=0.0)
-    assert np.isclose(
-        _wrapped_phase_diff(np.angle(hp_ratio), np.angle(sidereal.H_p)),
-        0.0,
-        atol=err,
-    )
-    assert np.isclose(
-        _wrapped_phase_diff(np.angle(hc_ratio), np.angle(sidereal.H_c)),
-        0.0,
-        atol=err,
-    )
+    if check_ratios:
+        assert np.isclose(np.abs(hp_ratio), np.abs(sidereal.H_p), rtol=ratio_mag_err, atol=0.0)
+        assert np.isclose(np.abs(hc_ratio), np.abs(sidereal.H_c), rtol=ratio_mag_err, atol=0.0)
+        if ratio_phase_err is not None:
+            assert np.isclose(
+                _wrapped_phase_diff(np.angle(hp_ratio), np.angle(sidereal.H_p)),
+                0.0,
+                atol=ratio_phase_err,
+            )
+            assert np.isclose(
+                _wrapped_phase_diff(np.angle(hc_ratio), np.angle(sidereal.H_c)),
+                0.0,
+                atol=ratio_phase_err,
+            )
     return np.array(
         [
             delta_omega / np.diff(resampler.freqs)[0],
