@@ -1,5 +1,5 @@
-from .five_vec import five_vec
-from .resampler import Resampler
+from five_vec import five_vec
+from resampler import Resampler
 import numpy as np
 from astropy.time import Time
 
@@ -67,6 +67,10 @@ def _time_domain_5vec(sidereal, t, tau, gap_mask=None):
     return template_X, template_Xp, template_Xc
 
 
+def _detection_stat(template_Xp, template_Xc, hp_est, hc_est):
+    return np.sum(np.abs(template_Xp) ** 4) * abs(hp_est) ** 2 + np.sum(np.abs(template_Xc) ** 4) * abs(hc_est) ** 2
+
+
 def _Dirichlet_corrections(resampler, omega0, tau, h0, gamma, gap_mask=None):
     idx0 = np.abs(resampler.freqs - omega0).argmin()
     delta_omega = omega0 - resampler.freqs[idx0]
@@ -86,7 +90,7 @@ def _Dirichlet_corrections(resampler, omega0, tau, h0, gamma, gap_mask=None):
     return expected_h, bin_factor, delta_omega
 
 
-def _create_PBH_signal(f0_setting="midpoint"):
+def _create_PBH_signal(f0_setting="midpoint", delta_beta=0):
     c, G, pi = 3e8, 6.67e-11, np.pi
     const = 96 / 5 * pi ** (8 / 3) * (G / c**3) ** (5 / 3)
     kpc = 3.086e19
@@ -118,6 +122,8 @@ def _create_PBH_signal(f0_setting="midpoint"):
             f0 = f0_next
     elif f0_setting == "uniform":
         f0 = np.random.uniform(0.1, 0.2)
+    elif type(f0_setting) == float:
+        f0 = f0_setting
     else:
         raise Exception("f0_setting error")
 
@@ -139,13 +145,14 @@ def _create_PBH_signal(f0_setting="midpoint"):
     sidereal.compute_5vec()
 
     signal = h0 * sidereal.amp_modulation * np.exp(1j * (phi - phi[0] + gamma))
-    tau = -(3 / (5 * beta)) * (1 - 8 / 3 * beta * t_offset) ** (5 / 8)
+    beta_analysis = beta + delta_beta
+    tau = -(3 / (5 * beta_analysis)) * (1 - 8 / 3 * beta_analysis * t_offset) ** (5 / 8)
     tau -= tau[0]
     return signal, tau, omega0, sidereal, h0, gamma, t
 
 
-def check_PBH_signal(err, f0_setting, gap_fraction=0.15):
-    signal, tau, omega0, sidereal, h0, gamma, t = _create_PBH_signal(f0_setting=f0_setting)
+def check_PBH_signal(err, f0_setting, gap_fraction=0.15, delta_beta=0):
+    signal, tau, omega0, sidereal, h0, gamma, t = _create_PBH_signal(f0_setting=f0_setting, delta_beta=delta_beta)
     gap_mask, gap_slice = _build_gap_mask(signal.size, gap_fraction=gap_fraction)
 
     gap_size = gap_slice.stop - gap_slice.start

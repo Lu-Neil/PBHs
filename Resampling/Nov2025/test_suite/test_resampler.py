@@ -6,6 +6,12 @@ def _wrapped_phase_diff(phi_a, phi_b):
     return np.angle(np.exp(1j * (phi_a - phi_b)))
 
 
+def _expected_nearest_bin(signal, tau, delta_omega):
+    """Return the exact nearest-bin response for a pure mode on nonuniform tau."""
+    tau_offset = tau - tau[0]
+    return signal[0] * np.mean(np.exp(1j * delta_omega * tau_offset))
+
+
 def test_monochromatic_signal():
     """Check amplitude and phase at the monochromatic peak against np.fft."""
     # Create signal
@@ -34,12 +40,10 @@ def test_monochromatic_signal():
     nufft_idx = np.abs(resampler.freqs - omega0).argmin()
     nufft_peak = nufft_weights[nufft_idx]
 
-    # Mismatch from bin centre
+    # The exact nearest-bin response reduces to the Dirichlet kernel for
+    # uniform tau, so use the same exact-kernel helper as the chirping tests.
     delta_omega = omega0 - resampler.freqs[nufft_idx]
-    bin_dephasing = delta_omega * 0.5 * (time[-1] - time[0])
-    bin_amp_loss = np.sinc(delta_omega * t_end / (2 * np.pi))
-    expected_phase = phase0 + bin_dephasing
-    expected_amp = amp * bin_amp_loss
+    expected = _expected_nearest_bin(signal, time, delta_omega)
 
     # Check NUFFT and FFT consistent
     assert np.isclose(np.abs(nufft_peak), np.abs(fft_peak), rtol=1e-2, atol=0.0)
@@ -51,15 +55,15 @@ def test_monochromatic_signal():
 
     # Check NUFFT consistent with Dirchlet kernel
     assert np.isclose(
-        _wrapped_phase_diff(np.angle(nufft_peak), expected_phase),
+        _wrapped_phase_diff(np.angle(nufft_peak), np.angle(expected)),
         0.0,
-        atol=1e-2,
+        atol=5e-3,
     )
     assert np.isclose(
         np.abs(nufft_peak),
-        expected_amp,
+        np.abs(expected),
         0.0,
-        atol=1e-2,
+        atol=1e-4,
     )
 
 
@@ -87,18 +91,16 @@ def test_fDot_signal():
     nufft_idx = np.abs(resampler.freqs - omega0).argmin()
     recovered = nufft_weights[nufft_idx]
 
-    # Mismatch from bin centre
+    # For nonuniform tau, the nearest-bin leakage is set by the exact complex
+    # kernel sampled at the tau locations rather than a simple Dirichlet factor.
     delta_omega = omega0 - resampler.freqs[nufft_idx]
-    bin_dephasing = delta_omega * 0.5 * (time[-1] - time[0])
-    bin_amp_loss = np.sinc(delta_omega * t_end / (2 * np.pi))
-    expected_phase = phase0 + bin_dephasing
-    expected_amp = amp * bin_amp_loss
+    expected = _expected_nearest_bin(signal, tau, delta_omega)
 
-    assert np.isclose(np.abs(recovered), expected_amp, rtol=1e-2, atol=0.0)
+    assert np.isclose(np.abs(recovered), np.abs(expected), rtol=1e-4, atol=0.0)
     assert np.isclose(
-        _wrapped_phase_diff(np.angle(recovered), expected_phase),
+        _wrapped_phase_diff(np.angle(recovered), np.angle(expected)),
         0.0,
-        atol=5e-2,
+        atol=5e-3,
     )
 
 
@@ -133,15 +135,11 @@ def test_PBH_signal():
     recovered = nufft_weights[nufft_idx]
 
     delta_omega = omega0 - resampler.freqs[nufft_idx]
-    tau_span = tau_shifted[-1] - tau_shifted[0]
-    bin_dephasing = delta_omega * 0.5 * tau_span
-    bin_amp_loss = np.sinc(delta_omega * tau_span / (2 * np.pi))
-    expected_amp = amp * bin_amp_loss
-    expected_phase = phase0 + omega0 * tau[0] + bin_dephasing
+    expected = _expected_nearest_bin(signal_source, tau_shifted, delta_omega)
 
-    assert np.isclose(np.abs(recovered), expected_amp, rtol=1e-2, atol=0.0)
+    assert np.isclose(np.abs(recovered), np.abs(expected), rtol=1e-4, atol=0.0)
     assert np.isclose(
-        _wrapped_phase_diff(np.angle(recovered), expected_phase),
+        _wrapped_phase_diff(np.angle(recovered), np.angle(expected)),
         0.0,
-        atol=5e-2,
+        atol=5e-3,
     )
