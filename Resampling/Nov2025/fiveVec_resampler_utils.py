@@ -44,7 +44,14 @@ def _random_params():
     )
 
 
-def _resolve_tolerances(err, h_mag_err, h_phase_err, ratio_mag_err, ratio_phase_err):
+def _resolve_tolerances(
+    err,
+    h_mag_err,
+    h_phase_err,
+    ratio_mag_err,
+    ratio_phase_err,
+    detection_stat_err,
+):
     if h_mag_err is None:
         h_mag_err = err
     if h_phase_err is None:
@@ -53,7 +60,9 @@ def _resolve_tolerances(err, h_mag_err, h_phase_err, ratio_mag_err, ratio_phase_
         ratio_mag_err = err
     if ratio_phase_err is None:
         ratio_phase_err = err
-    return h_mag_err, h_phase_err, ratio_mag_err, ratio_phase_err
+    if detection_stat_err is None:
+        detection_stat_err = ratio_mag_err
+    return h_mag_err, h_phase_err, ratio_mag_err, ratio_phase_err, detection_stat_err
 
 
 def _build_gap_mask(n_samples, gap_fraction=0.15):
@@ -185,14 +194,22 @@ def check_PBH_signal(
     h_phase_err=None,
     ratio_mag_err=None,
     ratio_phase_err=None,
+    detection_stat_err=None,
     check_ratios=True,
 ):
-    h_mag_err, h_phase_err, ratio_mag_err, ratio_phase_err = _resolve_tolerances(
+    (
+        h_mag_err,
+        h_phase_err,
+        ratio_mag_err,
+        ratio_phase_err,
+        detection_stat_err,
+    ) = _resolve_tolerances(
         err,
         h_mag_err,
         h_phase_err,
         ratio_mag_err,
         ratio_phase_err,
+        detection_stat_err,
     )
 
     signal, tau, omega0, sidereal, h0, gamma, t = _create_PBH_signal(f0_setting=f0_setting, delta_beta=delta_beta)
@@ -220,6 +237,10 @@ def check_PBH_signal(
         gamma,
         gap_mask=gap_mask,
     )
+    expected_hp = expected_h * sidereal.H_p
+    expected_hc = expected_h * sidereal.H_c
+    detected_stat = _detection_stat(template_Xp, template_Xc, hp_est, hc_est)
+    injected_stat = _detection_stat(template_Xp, template_Xc, expected_hp, expected_hc)
 
     assert np.isclose(h_reconstruct, np.abs(expected_h), rtol=h_mag_err, atol=0.0)
     assert np.isclose(np.abs(h_est), np.abs(expected_h), rtol=h_mag_err, atol=0.0)
@@ -228,6 +249,7 @@ def check_PBH_signal(
         0.0,
         atol=h_phase_err,
     )
+    assert np.isclose(detected_stat, injected_stat, rtol=detection_stat_err, atol=0.0)
 
     if check_ratios:
         assert np.isclose(np.abs(hp_ratio), np.abs(sidereal.H_p), rtol=ratio_mag_err, atol=0.0)

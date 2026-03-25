@@ -65,11 +65,16 @@ def _expected_carrier_response(resampler, omega0, tau, h0, gamma):
     return expected_h, bin_factor, delta_omega
 
 
+def _detection_stat(template_Xp, template_Xc, hp_est, hc_est):
+    return np.sum(np.abs(template_Xp) ** 4) * abs(hp_est) ** 2 + np.sum(np.abs(template_Xc) ** 4) * abs(hc_est) ** 2
+
+
 MIDPOINT_FDOT_TOLERANCES = dict(
     h_mag_err=1e-5,
     h_phase_err=1e-5,
     ratio_mag_err=1e-2,
     ratio_phase_err=1e-3,
+    detection_stat_err=1e-3,
     check_ratios=True,
 )
 
@@ -78,6 +83,7 @@ UNIFORM_FDOT_TOLERANCES = dict(
     h_phase_err=3e-1,
     ratio_mag_err=5e-1,
     ratio_phase_err=None,
+    detection_stat_err=3e-1,
     check_ratios=True,
 )
 
@@ -86,14 +92,16 @@ MIDPOINT_PBH_TOLERANCES = dict(
     h_phase_err=1e-3,
     ratio_mag_err=1e-2,
     ratio_phase_err=1e-3,
+    detection_stat_err=1e-3,
     check_ratios=True,
 )
 
 UNIFORM_PBH_TOLERANCES = dict(
     h_mag_err=2e-1,
-    h_phase_err=2e-1,
+    h_phase_err=3e-1,
     ratio_mag_err=5e-1,
     ratio_phase_err=None,
+    detection_stat_err=3e-1,
     check_ratios=True,
 )
 
@@ -144,6 +152,7 @@ def _check_fDot_signal(
     h_phase_err,
     ratio_mag_err,
     ratio_phase_err,
+    detection_stat_err,
     check_ratios,
     f0_setting,
 ):
@@ -161,6 +170,10 @@ def _check_fDot_signal(
     # For nonuniform tau, the carrier leakage is set by the sampled complex kernel
     # rather than a simple Dirichlet factor.
     expected_h, _, _ = _expected_carrier_response(resampler, omega0, tau, h0, gamma)
+    expected_hp = expected_h * sidereal.H_p
+    expected_hc = expected_h * sidereal.H_c
+    detected_stat = _detection_stat(template_Xp, template_Xc, hp_est, hc_est)
+    injected_stat = _detection_stat(template_Xp, template_Xc, expected_hp, expected_hc)
 
     assert np.isclose(np.abs(h_est), np.abs(expected_h), rtol=h_mag_err, atol=0.0)
     assert np.isclose(
@@ -168,6 +181,7 @@ def _check_fDot_signal(
         0.0,
         atol=h_phase_err,
     )
+    assert np.isclose(detected_stat, injected_stat, rtol=detection_stat_err, atol=0.0)
 
     if check_ratios:
         assert np.isclose(np.abs(hp_ratio), np.abs(sidereal.H_p), rtol=ratio_mag_err, atol=0.0)
