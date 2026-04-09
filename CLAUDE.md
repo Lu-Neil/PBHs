@@ -63,3 +63,77 @@ The repository includes a Conda environment named `PBH` (`environment.yml`). Whe
 ## One-line summary
 
 This project develops a gravitational-wave search pipeline that targets signals with a chosen phase evolution, demodulates them through nonuniform resampling, and uses a NUFFT plus 5-vector sidereal template matching to identify and reconstruct those signals.
+
+---
+
+## Pipeline development roadmap
+
+The items below represent the major open tasks needed to turn the current prototype into a deployable search pipeline. **This is a rough guide only — the exact priorities and ordering are still evolving.**
+
+### 1. NUFFT noise transfer function (analytical + numerical)
+The NUFFT on non-uniform `tau` does not preserve the input noise PSD. By a stationary-phase argument, the expected NUFFT PSD at output frequency `f_out` is:
+
+```
+<S_NUFFT(f_out)> = (1/T) ∫₀ᵀ S_n( f_out · τ'(t) ) dt
+```
+
+where `τ'(t) = dτ/dt = (1 - 8β t/3)^{-3/8}` — the time-average of `S_n` along the instantaneous frequency track. This formula is derived in `Resampling/Nov2025/demonstrating_behaviour/nufft_noise_psd.py`, which also compares FFT and NUFFT PSDs numerically using bilby H1 design noise.
+
+Key practical consequence: you cannot use `S_n(f0)` alone to normalise the detection statistic — the effective noise depends on the whole chirp track.
+
+### 2. Noise-weighted matched filter
+The current `_estimator` and `_joint_estimator` in `fiveVec_resampler_utils.py` assume equal, uncorrelated noise across all 5 sidereal bins. The optimal estimator is `X · (C⁻¹A) / (A† C⁻¹ A)` where **C** is the 5×5 noise covariance matrix of the extracted 5-vector. Measuring **C** from signal-free data (or predicting it from the transfer function above) is needed before the detection statistic can be properly calibrated.
+
+### 3. Coloured Gaussian noise injections
+Inject synthetic signals into coloured noise drawn from a known PSD (e.g. bilby H1 design). Verify that the recovered SNR matches the theoretical prediction from the noise transfer function formula.
+
+### 4. Detection statistic: absolute SNR normalisation and threshold setting
+The current `_detection_stat` in `fiveVec_resampler_utils.py` is a power-based quantity, not yet normalised against the noise floor. Needed:
+- SNR definition: `ρ² = Λ / σ²_noise`
+- Distribution of the statistic under H₀ (noise only) for a given template bank size
+- FAP threshold for a target false alarm probability
+
+The behaviour of the *detection statistic* (as opposed to recovered power) versus `Δβ` is already plotted numerically in `demonstrating_behaviour/delta_beta_behaviour.py`, but a theoretical model for its degradation analogous to the tail-power formula is still missing.
+
+### 5. Template bank construction
+The `Δβ` crossover condition gives the β spacing; the NUFFT bin width gives the f0 spacing. Neither has been turned into an explicit covering algorithm. Needed: parameter-space bounds (f0 range, Mc range → β range), maximum mismatch tolerance, and a total template count estimate.
+
+### 6. Real GW data infrastructure
+- GWpy-based data reading and segment queries
+- Bandpass and downsample to the target frequency band
+- Science-mode / data-quality segment handling
+- Calibration line awareness
+
+### 7. Signal injections into real detector noise
+End-to-end test: inject a synthetic PBH chirp into real H1/L1 noise and verify detection.
+
+### 8. Multi-detector combination
+Each detector contributes its own `A_p`, `A_c` with its own (lat, lng, az). The 5-vectors can be combined with noise weighting. Helps with glitch rejection and sky localisation.
+
+### 9. Glitch rejection
+Real noise is non-stationary. A χ² consistency test across the 5 sidereal bins (or a time–frequency excess-power veto before resampling) is needed to suppress glitch candidates.
+
+### 10. Post-detection parameter estimation
+After a candidate: estimate (Mc, f0, β, ra, dec, η, ψ). The 5-vector amplitude ratios encode polarisation state; sidereal phases encode sky position; β = const × f0^(8/3) × Mc^(5/3) gives chirp mass once f0 is measured.
+
+---
+
+## bilby usage notes
+
+`bilby` is available in the `PBH` environment and is used for generating simulated detector noise:
+
+```python
+import bilby
+bilby.core.utils.logger.setLevel("WARNING")
+
+ifo = bilby.gw.detector.InterferometerList(["H1"])[0]
+ifo.set_strain_data_from_power_spectral_density(
+    sampling_frequency=F_S, duration=T_OBS, start_time=-T_OBS / 2
+)
+strain = ifo.strain_data.time_domain_strain   # real numpy array
+```
+
+Constraints:
+- `sampling_frequency * duration` must be an integer (bilby enforces this strictly).
+- The H1 design PSD is finite only above ~10 Hz; below that bilby sets frequency bins to zero, so `F_S = 1 Hz` (Nyquist = 0.5 Hz) produces all-zero strain.
+- For demonstrations targeting the H1 sensitive band, use `F_S ≥ 64 Hz` so the band 10–32 Hz is accessible.

@@ -1,4 +1,4 @@
-"""Show recovered PBH power versus analysis delta_beta for one fixed injection."""
+"""Show recovered power and detection statistic versus analysis delta_beta for one fixed injection."""
 
 import os
 import sys
@@ -13,14 +13,20 @@ NOV2025_DIR = Path(__file__).resolve().parents[1]
 if str(NOV2025_DIR) not in sys.path:
     sys.path.insert(0, str(NOV2025_DIR))
 
-from fiveVec_resampler_utils import _create_PBH_signal, _estimator, _resample_and_extract_5vec, _time_domain_5vec
+from fiveVec_resampler_utils import (
+    _create_PBH_signal,
+    _detection_stat,
+    _estimator,
+    _resample_and_extract_5vec,
+    _time_domain_5vec,
+)
 
 
 SEED = 1
-N_DELTA_BETA = 80
+N_DELTA_BETA = 100
 DELTA_BETA_MIN = 1e-12
 DELTA_BETA_MAX = 1e-8
-OUTPUT_PATH = Path(__file__).resolve().parent / "delta_beta_power_recovery.png"
+OUTPUT_PATH = Path(__file__).resolve().parent / "figs" / "delta_beta_behaviour.png"
 
 
 def _infer_beta_from_amplitude(t_offset, h0):
@@ -51,7 +57,6 @@ def _crossover_time(t_offset, f0, beta, delta_beta):
 def _retained_power_from_tcross(beta, tcross, T_obs):
     if tcross >= T_obs:
         return 1.0
-
     edge_tcross = np.sqrt(1.0 - (8.0 / 3.0) * beta * tcross)
     edge_T = np.sqrt(1.0 - (8.0 / 3.0) * beta * T_obs)
     loss_fraction = (edge_tcross - edge_T) / (1.0 - edge_T)
@@ -73,25 +78,32 @@ def _fixed_signal_case(seed=SEED):
     return signal, omega0, sidereal, h0, t, t_offset, beta, f0
 
 
-def _recovered_power(signal, sidereal, t, tau, omega0):
+def _recovered_power_and_stat(signal, sidereal, t, tau, omega0):
     data_X, _ = _resample_and_extract_5vec(signal, tau, omega0)
-    template_X, _, _ = _time_domain_5vec(sidereal, t, tau)
+    template_X, template_Xp, template_Xc = _time_domain_5vec(sidereal, t, tau)
     h_est = _estimator(data_X, template_X)
-    return float(np.abs(h_est) ** 2)
+    hp_est = _estimator(data_X, template_Xp)
+    hc_est = _estimator(data_X, template_Xc)
+    power = float(np.abs(h_est) ** 2)
+    det_stat = float(_detection_stat(template_Xp, template_Xc, hp_est, hc_est))
+    return power, det_stat
 
 
 def run_scan(delta_beta_values):
     signal, omega0, sidereal, _, t, t_offset, beta, f0 = _fixed_signal_case()
 
     base_tau = _analysis_tau(t_offset, beta)
-    base_power = _recovered_power(signal, sidereal, t, base_tau, omega0)
+    base_power, base_det_stat = _recovered_power_and_stat(signal, sidereal, t, base_tau, omega0)
 
     recovered = []
+    det_stats = []
     predicted = []
     tcross_over_T = []
     for delta_beta in delta_beta_values:
         tau = _analysis_tau(t_offset, beta + delta_beta)
-        recovered.append(_recovered_power(signal, sidereal, t, tau, omega0) / base_power)
+        power, det_stat = _recovered_power_and_stat(signal, sidereal, t, tau, omega0)
+        recovered.append(power / base_power)
+        det_stats.append(det_stat / base_det_stat)
 
         tcross = _crossover_time(t_offset, f0, beta, delta_beta)
         predicted.append(_retained_power_from_tcross(beta, tcross, t_offset[-1]))
@@ -99,6 +111,7 @@ def run_scan(delta_beta_values):
 
     return {
         "recovered": np.array(recovered),
+        "det_stats": np.array(det_stats),
         "predicted": np.array(predicted),
         "tcross_over_T": np.array(tcross_over_T),
         "beta_cutoff": _cutoff_delta_beta(t_offset, f0, beta),
@@ -109,10 +122,44 @@ def run_scan(delta_beta_values):
 
 
 def make_plot(delta_beta_values, results):
-    fig, ax = pl.subplots(figsize=(8.5, 5.5), constrained_layout=True)
+    fig, axes = pl.subplots(2, 1, figsize=(8.5, 9.0), sharex=True, constrained_layout=True)
 
+    title = (
+        "Fixed midpoint PBH signal vs analysis "
+        + r"$\Delta\beta$"
+        + f"\nseed={SEED}, f0={results['f0']:.6f} Hz, Tobs={results['T_obs'] / 86164.090:.2f} d"
+    )
+    fig.suptitle(title)
+
+    # --- top panel: power ---
+    ax = axes[0]
     ax.plot(delta_beta_values, results["recovered"], "o-", ms=4, lw=1.5, label="Recovered 5-vector power")
     ax.plot(delta_beta_values, results["predicted"], lw=2.0, label=r"Tail-power estimate from $t_{\rm crossover}$")
+    ax.axvline(
+        results["beta_cutoff"],
+        color="0.35",
+        lw=1.5,
+        ls="--",
+        label=r"$t_{\rm crossover}=T_{\rm obs}$ cutoff",
+    )
+    ax.axhline(1.0, color="0.7", lw=1.0, ls=":")
+    ax.set_ylim(-0.02, 1.05)
+    ax.set_ylabel("Recovered power fraction")
+    ax.legend()
+    ax.text(
+        0.98,
+        0.04,
+        r"$\beta_{\rm cutoff}$" + f" = {results['beta_cutoff']:.2e}\n" + r"$\beta$" + f" = {results['beta']:.2e}",
+        transform=ax.transAxes,
+        ha="right",
+        va="bottom",
+        fontsize=10,
+        bbox=dict(boxstyle="round", facecolor="white", alpha=0.85, edgecolor="0.8"),
+    )
+
+    # --- bottom panel: detection statistic ---
+    ax = axes[1]
+    ax.plot(delta_beta_values, results["det_stats"], "s-", ms=4, lw=1.5, color="C1", label="Detection statistic")
     ax.axvline(
         results["beta_cutoff"],
         color="0.35",
@@ -124,24 +171,8 @@ def make_plot(delta_beta_values, results):
     ax.set_xscale("log")
     ax.set_ylim(-0.02, 1.05)
     ax.set_xlabel(r"$\Delta\beta$")
-    ax.set_ylabel("Recovered power fraction")
-    ax.set_title(
-        "Fixed midpoint PBH signal: recovered power vs analysis "
-        + r"$\Delta\beta$"
-        + f"\nseed={SEED}, f0={results['f0']:.6f} Hz, Tobs={results['T_obs'] / 86164.090:.2f} d"
-    )
+    ax.set_ylabel("Detection statistic (normalised)")
     ax.legend()
-
-    ax.text(
-        0.98,
-        0.04,
-        r"$\beta_{\rm cutoff}$" + f" = {results['beta_cutoff']:.2e}\n" + r"$\beta$" + f" = {results['beta']:.2e}",
-        transform=ax.transAxes,
-        ha="right",
-        va="bottom",
-        fontsize=10,
-        bbox=dict(boxstyle="round", facecolor="white", alpha=0.85, edgecolor="0.8"),
-    )
 
     return fig
 
@@ -154,9 +185,9 @@ def main():
 
     print(f"Saved plot to {OUTPUT_PATH}")
     print(f"beta_cutoff = {results['beta_cutoff']:.6e}")
-    print(f"beta = {results['beta']:.6e}")
-    print(f"f0 = {results['f0']:.6f} Hz")
-    print(f"T_obs = {results['T_obs'] / 86400:.6f} days")
+    print(f"beta        = {results['beta']:.6e}")
+    print(f"f0          = {results['f0']:.6f} Hz")
+    print(f"T_obs       = {results['T_obs'] / 86400:.6f} days")
 
 
 if __name__ == "__main__":

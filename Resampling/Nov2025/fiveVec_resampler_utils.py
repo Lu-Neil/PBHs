@@ -124,7 +124,7 @@ def _Dirichlet_corrections(resampler, omega0, tau, h0, gamma, gap_mask=None):
     return _expected_carrier_response(resampler, omega0, tau, h0, gamma, gap_mask=gap_mask)
 
 
-def _create_PBH_signal(f0_setting="midpoint", delta_beta=0, Mc=None):
+def _create_PBH_signal(f0_setting="midpoint", delta_beta=0, Mc=None, f_signal=1):
     c, G, pi = 3e8, 6.67e-11, np.pi
     const = 96 / 5 * pi ** (8 / 3) * (G / c**3) ** (5 / 3)
     kpc = 3.086e19
@@ -133,7 +133,7 @@ def _create_PBH_signal(f0_setting="midpoint", delta_beta=0, Mc=None):
 
     number_of_days = 2  # keep integer days for clean 1/day sideband spacing
     T_obs = number_of_days * sidereal.side_day
-    f_signal = 1
+    f_signal = f_signal
     n_samples = round(f_signal * T_obs)
     t_offset = np.linspace(0, T_obs, n_samples, endpoint=False, dtype=float)
     t_last = t_offset[-1]
@@ -169,6 +169,8 @@ def _create_PBH_signal(f0_setting="midpoint", delta_beta=0, Mc=None):
 
     beta = const * f0 ** (8 / 3) * Mc ** (5 / 3)
     f = f0 * (1 - 8 / 3 * beta * t_offset) ** (-3 / 8)
+    if any(f > f_signal):
+        raise Exception("signal frequency goes above Nyquist")
     gamma = np.random.uniform(0, 2 * np.pi)
     h0 = 4 / dist * (G * Mc / (c**2)) ** (5 / 3) * (np.pi * f / c) ** (2 / 3)
     phi = -6 * pi / 5 * f0 * (1 - 8 / 3 * beta * t_offset) ** (5 / 8) / beta
