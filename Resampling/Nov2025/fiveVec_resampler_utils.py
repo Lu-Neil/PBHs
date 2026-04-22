@@ -75,7 +75,8 @@ def _build_gap_mask(n_samples, gap_fraction=0.15):
     return mask, slice(gap_start, gap_end)
 
 
-def _time_domain_5vec(sidereal, t, tau, gap_mask=None):
+def _build_time_domain_templates(sidereal, t, gap_mask=None):
+    """Construct the τ-independent time-domain 5-vector templates (comb, plus, cross)."""
     sidereal_t = sidereal.gmst(t.mjd)
     sidereal_t -= sidereal_t[0]
     exp_terms = np.exp(1j * (np.arange(5) - 2)[:, np.newaxis] * sidereal_t)
@@ -88,6 +89,11 @@ def _time_domain_5vec(sidereal, t, tau, gap_mask=None):
         template_c = np.where(gap_mask, template_c, 0.0)
         template_comb = np.where(gap_mask, template_comb, 0.0)
 
+    return template_comb, template_p, template_c
+
+
+def _time_domain_5vec(sidereal, t, tau, gap_mask=None):
+    template_comb, template_p, template_c = _build_time_domain_templates(sidereal, t, gap_mask=gap_mask)
     template_Xp, _ = _resample_and_extract_5vec(template_p, tau, 0)
     template_Xc, _ = _resample_and_extract_5vec(template_c, tau, 0)
     template_X, _ = _resample_and_extract_5vec(template_comb, tau, 0)
@@ -124,14 +130,14 @@ def _Dirichlet_corrections(resampler, omega0, tau, h0, gamma, gap_mask=None):
     return _expected_carrier_response(resampler, omega0, tau, h0, gamma, gap_mask=gap_mask)
 
 
-def _create_PBH_signal(f0_setting="midpoint", delta_beta=0, Mc=None, f_signal=1):
+def _create_PBH_signal(f0_setting="midpoint", delta_beta=0, Mc=None, f_signal=1, n_days=2):
     c, G, pi = 3e8, 6.67e-11, np.pi
     const = 96 / 5 * pi ** (8 / 3) * (G / c**3) ** (5 / 3)
     kpc = 3.086e19
     dist = 8 * kpc
     sidereal = five_vec(**_random_params())
 
-    number_of_days = 2  # keep integer days for clean 1/day sideband spacing
+    number_of_days = n_days  # keep integer days for clean 1/day sideband spacing
     T_obs = number_of_days * sidereal.side_day
     f_signal = f_signal
     n_samples = round(f_signal * T_obs)

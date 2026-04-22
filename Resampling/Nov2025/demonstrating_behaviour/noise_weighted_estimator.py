@@ -12,12 +12,15 @@ Demonstrates:
   3. Calibrated SNR² output vs the old unweighted _detection_stat
   4. Bias that results from using the naive S_n(f_k) instead of S_eff
 
-Parameters are chosen so the noise transfer correction is ~17%:
-  - M_c = 16 solar masses  ->  beta ~3.65e-7 s^-1,  8/3*beta*T_obs ~0.167
-  - PSD slope alpha = -6  (steeply red power-law in the sub-Hz band)
-  -> S_eff / S_n(f_0) ~ 0.825  (signal chirps up into quieter noise)
+Parameters:
+  - f_0 = 20 Hz, F_S = 100 Hz  (Nyquist = 50 Hz; signal stays in band throughout chirp)
+  - M_c = 0.01 solar masses  ->  beta ~8.0e-7 s^-1,  8/3*beta*T_obs ~0.37  (2 sidereal days)
+  - Signal chirps 20 Hz -> ~23.7 Hz over 2 sidereal days  (Delta_f ~ 3.7 Hz)
+  - T_coal ~ 5.5 sidereal days: signal does not merge during the observation
+  - Noise from bilby H1 design PSD (finite above ~10 Hz; f0=20 Hz is in the sensitive band)
 
-For real data replace `Sn` with an interpolant of the measured ASD.
+Noise is drawn from the bilby H1 interferometer design PSD. The Sn interpolant is built
+from the same PSD and passed to analytical_S_eff for the noise-transfer correction.
 """
 
 import os
@@ -26,8 +29,12 @@ from pathlib import Path
 
 os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
 
+import bilby
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.interpolate import interp1d
+
+bilby.core.utils.logger.setLevel("WARNING")
 
 NOV2025_DIR = Path(__file__).resolve().parent.parent
 if str(NOV2025_DIR) not in sys.path:
@@ -46,12 +53,11 @@ from fiveVec_resampler_utils import (
 # ------------------------------------------------------------------ #
 
 SEED = 42
-MC_SOLAR = 16.0  # chirp mass [solar masses]
+MC_SOLAR = 0.01  # chirp mass [solar masses]; T_coal ~ 5.5 days at f0=20 Hz
+F0 = 20
 MC = MC_SOLAR * 2e30  # kg
-ALPHA_NOISE = -6.0  # power-law PSD slope
-TARGET_SNR = 15.0  # nominal SNR ~ 15 with flat noise (SNR^2 ~ 225)
-N_REAL = 100  # Monte Carlo noise realisations
-F_S = 1.0  # Hz  (set by _create_PBH_signal)
+N_REAL = 10  # Monte Carlo noise realisations
+F_S = 100.0  # Hz (Nyquist = 50 Hz; signal chirps 20->24 Hz, well within band)
 
 SIDE_DAY = 86164.09053083288  # sidereal day [s]
 c, G = 3e8, 6.67e-11
@@ -74,12 +80,17 @@ def build_signal_and_templates():
                     f0, beta, n_samples, T_obs
     """
     np.random.seed(SEED)
-    signal, tau, omega0, sidereal, h0, gamma, t = _create_PBH_signal(f0_setting="midpoint", Mc=MC)
+    signal, tau, omega0, sidereal, h0, gamma, t = _create_PBH_signal(f0_setting=20.0, Mc=MC, f_signal=F_S, n_days=2)
+    signal = 3e-2 * signal  # Decrease the SNR to reasonable numbers
 
     n_samples = len(signal)
     T_obs = n_samples / F_S
     f0 = omega0 / (2 * np.pi)
     beta = _CHIRP_CONST * f0 ** (8 / 3) * MC ** (5 / 3)
+
+    f_start = f0
+    f_end = f0 * (1.0 - (8.0 / 3.0) * beta * T_obs) ** (-3.0 / 8.0)
+    print(f"Chirp: f_start = {f_start:.1f} Hz -> f_end = {f_end:.1f} Hz")
 
     data_X_signal, resampler = _resample_and_extract_5vec(signal, tau, omega0)
     _, template_Xp, template_Xc = _time_domain_5vec(sidereal, t, tau)
@@ -104,52 +115,49 @@ def build_signal_and_templates():
 
 
 # ------------------------------------------------------------------ #
-# 2. Synthetic power-law noise PSD and noise generator                 #
+# 2. Bilby H1 noise PSD and noise generator                            #
 # ------------------------------------------------------------------ #
 
 
-def make_Sn(f0, T_obs, P_sig):
-    """Return a power-law PSD callable scaled so flat-noise SNR ≈ TARGET_SNR.
+def make_bilby_noise_and_psd(n_samples, T_obs):
+    """Set up bilby H1 noise generator and PSD interpolant.
 
-    Convention matches the NUFFT normalization:
-        <|weights_normalized[k]|^2> * T_obs = Sn(f_k)
+    Returns
+    -------
+    Sn : callable  Two-sided noise PSD (Hz → strain² Hz⁻¹).
+                   Convention: E[|weights_normalized[k]|²] * T_obs = Sn(|f_k|).
+                   Equals bilby's one-sided design PSD divided by 2 (real signal).
+    draw : callable  Returns one real noise realisation as a numpy array
     """
-    S0 = P_sig * T_obs / TARGET_SNR**2  # PSD amplitude at f0 [strain^2 / Hz]
+    ifo = bilby.gw.detector.InterferometerList(["H1"])[0]
+    ifo.set_strain_data_from_power_spectral_density(sampling_frequency=F_S, duration=T_obs, start_time=-T_obs / 2)
+    f_design = ifo.strain_data.frequency_array
+    psd_design = ifo.power_spectral_density_array
+
+    # bilby provides the one-sided PSD; divide by 2 to get the two-sided PSD that
+    # matches the NUFFT convention:  E[|weights_normalized[k]|²] * T_obs = S_two_sided.
+    # (nufft_noise_psd.py confirms: 2 * psd_fft = S_bilby_one_sided.)
+    finite = np.isfinite(psd_design) & (psd_design > 0) & (f_design > 0)
+    log_Sn = interp1d(
+        np.log(f_design[finite]),
+        np.log(psd_design[finite] / 2),  # /2: one-sided → two-sided
+        kind="linear",
+        bounds_error=False,
+        fill_value=-np.inf,
+    )
 
     def Sn(f):
         f = np.asarray(f, dtype=float)
-        out = np.zeros_like(f)
-        pos = f > 0
-        out[pos] = S0 * (f[pos] / f0) ** ALPHA_NOISE
+        log_val = log_Sn(np.where(f > 0, np.log(np.maximum(f, 1e-30)), -np.inf))
+        out = np.exp(log_val)
+        out[f <= 0] = 0.0
         return out
 
-    return Sn
-
-
-def make_noise_generator(n_samples, T_obs, Sn):
-    """Return a callable that draws one complex coloured-noise realisation.
-
-    Normalization: the NUFFT of the generated noise satisfies
-        <|NUFFT(noise)[k] / N|^2> * T_obs  ~  Sn(f_k)
-
-    Implementation: draw noise in the frequency domain so that
-        E[|FFT(noise)[k]|^2] = N * F_S * Sn(|f_k|)
-    which implies the above through the equivalence of NUFFT and FFT on
-    a uniform grid.
-    """
-    freqs = np.fft.fftfreq(n_samples, d=1.0 / F_S)  # Hz
-    psd = Sn(np.abs(freqs))
-    # std of each complex FFT component (real and imag independently)
-    std = np.sqrt(n_samples * F_S * psd / 2.0)
-    std[0] = 0.0  # zero DC
-
-    rng = np.random.default_rng(SEED)
-
     def draw():
-        noise_fd = std * (rng.standard_normal(n_samples) + 1j * rng.standard_normal(n_samples))
-        return np.fft.ifft(noise_fd)  # complex coloured noise
+        ifo.set_strain_data_from_power_spectral_density(sampling_frequency=F_S, duration=T_obs, start_time=-T_obs / 2)
+        return ifo.strain_data.time_domain_strain  # real numpy array
 
-    return draw
+    return Sn, draw
 
 
 # ------------------------------------------------------------------ #
@@ -249,9 +257,7 @@ def main():
     print(f"h0 mean  = {np.mean(D['h0']):.3e}")
 
     # ----- PSD and noise -----
-    P_sig = np.sum(np.abs(data_X_signal) ** 2)
-    Sn = make_Sn(f0, T_obs, P_sig)
-    make_noise = make_noise_generator(n_samples, T_obs, Sn)
+    Sn, make_noise = make_bilby_noise_and_psd(n_samples, T_obs)
 
     # ----- Effective PSD at the 5 sideband bins -----
     freqs_5vec_hz = np.array([f0 + k / SIDE_DAY for k in range(-2, 3)])
@@ -260,13 +266,6 @@ def main():
 
     sigma2_eff = S_eff / T_obs
     sigma2_naive = S_naive / T_obs
-
-    print("\nEffective vs naive PSD at the 5 sideband bins:")
-    for k in range(5):
-        ratio = S_eff[k] / S_naive[k]
-        print(f"  bin k={k - 2:+d}: S_eff={S_eff[k]:.4e}  S_naive={S_naive[k]:.4e}  ratio={ratio:.4f}")
-    mean_ratio = np.mean(S_eff / S_naive)
-    print(f"  Mean S_eff/S_naive = {mean_ratio:.4f}  (< 1: signal chirps into quieter noise)")
 
     # ----- Theoretical SNR from signal-only 5-vector -----
     _, _, snr_sq_theory_eff = noise_weighted_estimator(data_X_signal, template_Xp, template_Xc, sigma2_eff)
@@ -288,16 +287,16 @@ def main():
 
     # Unweighted (old pipeline)
     hp_old, hc_old = _joint_estimator(data_X_noisy, template_Xp, template_Xc)
-    old_stat = _detection_stat(template_Xp, template_Xc, hp_old, hc_old)
+    # old_stat = _detection_stat(template_Xp, template_Xc, hp_old, hc_old)
 
     print(f"\nSingle noisy realisation:")
-    print(f"  Old _detection_stat                  = {old_stat:.4e}  (arbitrary units)")
+    # print(f"  Old _detection_stat                  = {old_stat:.4e}  (arbitrary units)")
     print(f"  SNR^2 (corrected, S_eff)             = {snr_sq_eff:.2f}")
     print(f"  SNR^2 (naive,     S_n(fk))           = {snr_sq_naive:.2f}")
     print(f"  Theory (corrected, + 2 dof expected) = {snr_sq_theory_eff + 2:.2f}")
 
     # ----- Monte Carlo -----
-    print(f"\nMonte Carlo ({N_REAL} realisations) ...")
+    print(f"\n({N_REAL} realisations) ...")
     snr_eff_mc = np.zeros(N_REAL)
     snr_naive_mc = np.zeros(N_REAL)
 
@@ -320,31 +319,8 @@ def main():
         f"ratio={snr_naive_mc.mean() / expected_naive:.4f}"
     )
 
-    # ----- Plots -----
-    fig, axes = plt.subplots(1, 3, figsize=(15, 4.5), constrained_layout=True)
-
-    # Panel 1: S_eff vs S_naive at the 5 bins
-    ax = axes[0]
-    x = np.arange(5)
-    w = 0.35
-    ax.bar(x - w / 2, S_naive, w, label=r"$S_n(f_k)$  naive", color="C0", alpha=0.85)
-    ax.bar(x + w / 2, S_eff, w, label=r"$S_\mathrm{eff}$  corrected", color="C1", alpha=0.85)
-    ax.set_xticks(x)
-    ax.set_xticklabels([f"k={k:+d}" for k in range(-2, 3)])
-    ax.set_ylabel(r"PSD [strain$^2$ Hz$^{-1}$]")
-    ax.set_title("Effective vs naive PSD\nat the 5 sideband bins")
-    ax.legend(fontsize=9)
-    ax.text(
-        0.05,
-        0.95,
-        rf"$\langle S_{{\rm eff}}/S_n(f_k) \rangle = {mean_ratio:.3f}$",
-        transform=ax.transAxes,
-        va="top",
-        fontsize=9,
-    )
-
-    # Panel 2: SNR^2 distributions from Monte Carlo
-    ax = axes[1]
+    # ----- Plot: SNR^2 distributions from Monte Carlo -----
+    fig, ax = plt.subplots(1, 1, figsize=(6, 4.5), constrained_layout=True)
     all_vals = np.concatenate([snr_eff_mc, snr_naive_mc])
     bins = np.linspace(all_vals.min() * 0.8, all_vals.max() * 1.15, 35)
     ax.hist(snr_eff_mc, bins=bins, alpha=0.6, color="C1", label=r"SNR$^2$ ($S_\mathrm{eff}$ corrected)")
@@ -356,38 +332,14 @@ def main():
     ax.set_title(rf"SNR$^2$ distribution  ({N_REAL} realisations)")
     ax.legend(fontsize=8)
 
-    # Panel 3: Recovered vs true amplitudes for single realisation
-    ax = axes[2]
-    # True amplitudes from the signal-only estimator
-    hp_true, hc_true, _ = noise_weighted_estimator(data_X_signal, template_Xp, template_Xc, sigma2_eff)
-    for h_true_i, h_est_i, lbl, col in [
-        (hp_true, hp_eff, r"$h_+$", "C2"),
-        (hc_true, hc_eff, r"$h_\times$", "C3"),
-    ]:
-        ax.plot(h_true_i.real, h_true_i.imag, "o", color=col, ms=9, label=f"{lbl} true")
-        ax.plot(h_est_i.real, h_est_i.imag, "x", color=col, ms=9, mew=2.5, label=f"{lbl} estimated")
-        ax.annotate(
-            "",
-            xy=(h_est_i.real, h_est_i.imag),
-            xytext=(h_true_i.real, h_true_i.imag),
-            arrowprops=dict(arrowstyle="->", color=col, lw=1.5),
-        )
-    ax.axhline(0, color="gray", lw=0.5)
-    ax.axvline(0, color="gray", lw=0.5)
-    ax.set_xlabel(r"Re$(\hat{h})$")
-    ax.set_ylabel(r"Im$(\hat{h})$")
-    ax.set_title("Recovered vs true amplitudes\n(corrected MF, single realisation)")
-    ax.legend(fontsize=8)
-    ax.set_aspect("equal")
-
     fig.suptitle(
         rf"Noise-weighted 5-vector estimator  —  "
         rf"$f_0={f0:.4f}$ Hz,  $\beta={beta:.2e}$ s$^{{-1}}$,  "
-        rf"$\alpha={ALPHA_NOISE:.0f}$,  $M_c={MC_SOLAR:.0f}\,M_\odot$",
+        rf"$M_c={MC_SOLAR:.1e}\,M_\odot$",
         fontsize=10,
     )
 
-    out_path = Path(__file__).resolve().parent / "figs" / "noise_weighted_estimator.png"
+    out_path = Path(__file__).resolve().parent / "figs/noise_weighted_estimator.png"
     fig.savefig(out_path, dpi=150)
     print(f"\nSaved plot -> {out_path}")
 

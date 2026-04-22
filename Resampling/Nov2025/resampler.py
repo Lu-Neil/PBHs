@@ -46,7 +46,7 @@ class Resampler(object):
         bins = np.arange(bin_no) - bin_no//2
         freqs = bins * scale
         
-        weights = finufft.nufft1d1(tau_scaled, signal.astype(complex), bin_no, isign = -1)
+        weights = finufft.nufft1d1(tau_scaled, np.asarray(signal, dtype=complex), bin_no, isign = -1)
         self.freqs = freqs
         self.weights = weights
 
@@ -96,14 +96,17 @@ class Resampler(object):
 
 
     def extract_5vec(self, f0):
-        """ 
-        Extract the 5 normalized weights at the f0 frequency and the 2 sidebands from sidereal modulation 
+        """
+        Extract the 5 normalized weights at the f0 frequency and the 2 sidebands from sidereal modulation.
+
+        f0 may be a scalar (returns shape (5,)) or an array of carrier
+        frequencies (returns shape (..., 5)).
         """
         side_day = 86164.09053083288
-        X = np.empty((5), dtype=complex)
-        X[0] = self.weights_normalized[abs(self.freqs-(f0-2*np.pi*2/side_day)).argmin()]
-        X[1] = self.weights_normalized[abs(self.freqs-(f0-2*np.pi*1/side_day)).argmin()]
-        X[2] = self.weights_normalized[abs(self.freqs-f0).argmin()]
-        X[3] = self.weights_normalized[abs(self.freqs-(f0+2*np.pi*1/side_day)).argmin()]
-        X[4] = self.weights_normalized[abs(self.freqs-(f0+2*np.pi*2/side_day)).argmin()]
-        return X
+        f0 = np.asarray(f0)
+        df = self.freqs[1] - self.freqs[0]
+        offsets = 2 * np.pi / side_day * np.arange(-2, 3)  # (5,)
+        targets = f0[..., None] + offsets                  # (..., 5)
+        indices = np.round((targets - self.freqs[0]) / df).astype(int)
+        indices = np.clip(indices, 0, self.freqs.size - 1)
+        return self.weights_normalized[indices]
