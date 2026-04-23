@@ -1,19 +1,24 @@
 """
 Semicoherent combination of a 4-day PBH chirp split into two 2-day chunks.
 
-White-noise variant: Sn(f) = const, so S_eff is constant across the chirp track
-and identical for both halves. With the noise floor uniform, the per-segment
-sigma2 differs from the coherent sigma2 only by the T_obs factor, the harmonic-
-mean boost from non-stationary noise vanishes, and the semi/coh detectability
-ratio should match the textbook 1/sqrt(N_segments).
+This version uses no time-domain noise realisations. Instead, the noise
+covariance C is built from the theoretically expected NUFFT noise transfer,
+following the stationary-phase / point-spreading argument used in
+nufft_noise_psd.py:
+
+    S_eff(f_out) = (1/T) ∫ S_n(f_out * dtau/dt) dt
 
 For each analysis segment we:
 
 1. compute the signal-only 5-vector
-2. build C = diag(sigma2) from the (constant) NUFFT PSD in the 5 sideband bins
+2. build C = diag(sigma2) from the expected NUFFT PSD in the 5 sideband bins
 3. evaluate the calibrated signal-only SNR^2
 4. derive the noise-only mean/std analytically from the corresponding matched
    filter projector, with no explicit noise injection
+
+The semicoherent statistic is the sum of the two 2-day SNR^2 values. If the
+signal contribution stays roughly unchanged while the chunk noises add in
+quadrature, the detectability ratio should approach 1/sqrt(2).
 """
 
 import os
@@ -22,8 +27,12 @@ from pathlib import Path
 
 os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
 
+import bilby
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.interpolate import interp1d
+
+bilby.core.utils.logger.setLevel("WARNING")
 
 NOV2025_DIR = Path(__file__).resolve().parent.parent
 if str(NOV2025_DIR) not in sys.path:
@@ -38,6 +47,7 @@ N_SEGMENTS = 2
 SEGMENT_DAYS = TOTAL_DAYS // N_SEGMENTS
 MC_SOLAR = 0.005
 MC = MC_SOLAR * 2e30
+F0 = 20.0
 F_S = 48.0
 SIGNAL_SCALE = float(os.getenv("PBH_SEMICOHERENT_SIGNAL_SCALE", "0.03"))
 SIDE_DAY = 86164.09053083288
@@ -56,7 +66,7 @@ def build_signal():
     """Create one fixed 4-day PBH chirp in the detector band."""
     np.random.seed(SEED)
     signal, tau, omega0, sidereal, h0, gamma, t = _create_PBH_signal(
-        f0_setting="midpoint",
+        f0_setting=F0,
         Mc=MC,
         f_signal=F_S,
         n_days=TOTAL_DAYS,
@@ -79,16 +89,32 @@ def build_signal():
     }
 
 
-# Two-sided white-noise PSD level. Set to roughly H1 design at 20 Hz / 2 so
-# absolute SNR^2 values stay comparable with the bilby variant.
-WHITE_PSD_TWO_SIDED = 6.0e-46
+def make_bilby_psd(duration):
+    """Return the two-sided H1 design-PSD interpolant used by the NUFFT transfer."""
+    ifo = bilby.gw.detector.InterferometerList(["H1"])[0]
+    ifo.set_strain_data_from_power_spectral_density(
+        sampling_frequency=F_S,
+        duration=duration,
+        start_time=-duration / 2.0,
+    )
+    f_design = ifo.strain_data.frequency_array
+    psd_design = ifo.power_spectral_density_array
 
-
-def make_white_psd():
-    """Return a constant two-sided PSD function. f-independent by construction."""
+    finite = np.isfinite(psd_design) & (psd_design > 0) & (f_design > 0)
+    log_Sn = interp1d(
+        np.log(f_design[finite]),
+        np.log(psd_design[finite] / 2.0),
+        kind="linear",
+        bounds_error=False,
+        fill_value=-np.inf,
+    )
 
     def Sn(f):
-        return np.full_like(np.asarray(f, dtype=float), WHITE_PSD_TWO_SIDED)
+        f = np.asarray(f, dtype=float)
+        log_val = log_Sn(np.where(f > 0, np.log(np.maximum(f, 1e-30)), -np.inf))
+        out = np.exp(log_val)
+        out[f <= 0] = 0.0
+        return out
 
     return Sn
 
@@ -172,16 +198,8 @@ def analyze_observation(signal, t, tau, sidereal, omega0, f0, beta, Sn):
     t_offset = t.gps - t.gps[0]
     dt = 1.0 / F_S
     coherent_seg = analyze_segment(
-        signal,
-        t,
-        tau,
-        sidereal,
-        omega0,
-        f0,
-        beta,
-        float(t_offset[0]),
-        float(t_offset[-1] + dt),
-        Sn,
+        signal, t, tau, sidereal, omega0, f0, beta,
+        float(t_offset[0]), float(t_offset[-1] + dt), Sn,
     )
     coherent = summarize_case(
         coherent_seg["snr_sq"],
@@ -266,7 +284,7 @@ def main():
     print("=" * 60)
     print("Semicoherent combination from theoretical noise covariance")
     print("=" * 60)
-    print(f"seed={SEED}, f0=auto (midpoint), Mc={MC_SOLAR:.3g} Msun, F_S={F_S:.1f} Hz")
+    print(f"seed={SEED}, f0={F0:.1f} Hz, Mc={MC_SOLAR:.3g} Msun, F_S={F_S:.1f} Hz")
     print("Using no time-domain noise injection; C comes from the expected NUFFT PSD transfer.")
 
     D = build_signal()
@@ -283,8 +301,7 @@ def main():
     f_end = f0 * (1 - 8 / 3 * beta * D["T_obs"]) ** (-3 / 8)
     print(f"chirp track: f_start={f0:.6f} Hz -> f_end={f_end:.6f} Hz")
 
-    Sn = make_white_psd()
-    print(f"white noise: S_two = {WHITE_PSD_TWO_SIDED:.3g} (constant)")
+    Sn = make_bilby_psd(D["T_obs"])
     coherent, semicoherent = analyze_observation(signal, t, tau, sidereal, omega0, f0, beta, Sn)
 
     print("\nCoherent 4-day:")
