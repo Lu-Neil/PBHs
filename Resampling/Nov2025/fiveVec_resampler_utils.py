@@ -145,7 +145,7 @@ def _create_PBH_signal(f0_setting="midpoint", delta_beta=0, Mc=None, f_signal=1,
     t_last = t_offset[-1]
 
     if Mc is not None:
-        pass
+        Mc = Mc * 2e30
     else:
         Mc = 10 ** np.random.uniform(-3, -1) * 2e30
 

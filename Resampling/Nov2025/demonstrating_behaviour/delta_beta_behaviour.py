@@ -74,7 +74,7 @@ def _cutoff_delta_beta(t_offset, f0, beta):
 
 def _fixed_signal_case(seed=SEED):
     np.random.seed(seed)
-    signal, _, omega0, sidereal, h0, _, t = _create_PBH_signal(f0_setting="midpoint", delta_beta=0.0)
+    signal, _, omega0, sidereal, h0, _, t = _create_PBH_signal(f0_setting="midpoint", Mc=1e1, delta_beta=0.0)
     t_offset = t.gps - t.gps[0]
     beta = _infer_beta_from_amplitude(t_offset, h0)
     f0 = omega0 / (2.0 * np.pi)
@@ -135,9 +135,7 @@ def run_scan(delta_beta_values):
     tcross_over_T = []
     for delta_beta in delta_beta_values:
         tau = _analysis_tau(t_offset, beta + delta_beta)
-        power, det_stat = _recovered_power_and_stat_scan(
-            signal, template_comb, template_p, template_c, tau, omega0
-        )
+        power, det_stat = _recovered_power_and_stat_scan(signal, template_comb, template_p, template_c, tau, omega0)
         recovered.append(power / base_power)
         det_stats.append(det_stat / base_det_stat)
 

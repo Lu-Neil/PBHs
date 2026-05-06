@@ -47,7 +47,6 @@ N_SEGMENTS = 2
 SEGMENT_DAYS = TOTAL_DAYS // N_SEGMENTS
 MC_SOLAR = 0.005
 MC = MC_SOLAR * 2e30
-F0 = 20.0
 F_S = 48.0
 SIGNAL_SCALE = float(os.getenv("PBH_SEMICOHERENT_SIGNAL_SCALE", "0.03"))
 SIDE_DAY = 86164.09053083288
@@ -62,11 +61,38 @@ def _segment_slices(n_samples, n_segments):
     return [slice(edges[i], edges[i + 1]) for i in range(n_segments)]
 
 
+TARGET_F0 = 20.0  # Hz; carrier sits in H1 sensitive band
+
+
+def _bin_aligned_f0(target_f0):
+    """Solve for f0 near target_f0 such that f0 lands on a NUFFT bin in the
+    coherent tau-span AND on a NUFFT bin in each segment (carrier_bin is
+    constrained to be a multiple of N_SEGMENTS so it halves cleanly).
+    """
+    T_obs = TOTAL_DAYS * SIDE_DAY
+    n_samples = round(F_S * T_obs)
+    t_last = T_obs * (n_samples - 1) / n_samples
+
+    def tau_span(f0):
+        beta = CHIRP_CONST * f0 ** (8 / 3) * MC ** (5 / 3)
+        return (3 / (5 * beta)) * (1 - (1 - 8 / 3 * beta * t_last) ** (5 / 8))
+
+    carrier_bin = N_SEGMENTS * round(target_f0 * t_last / N_SEGMENTS)
+    f0 = carrier_bin / t_last
+    for _ in range(20):
+        f0_next = carrier_bin / tau_span(f0)
+        if np.isclose(f0_next, f0, rtol=0.0, atol=1e-14):
+            break
+        f0 = f0_next
+    return float(f0)
+
+
 def build_signal():
     """Create one fixed 4-day PBH chirp in the detector band."""
     np.random.seed(SEED)
+    f0_aligned = _bin_aligned_f0(TARGET_F0)
     signal, tau, omega0, sidereal, h0, gamma, t = _create_PBH_signal(
-        f0_setting=F0,
+        f0_setting=f0_aligned,
         Mc=MC,
         f_signal=F_S,
         n_days=TOTAL_DAYS,
@@ -284,7 +310,7 @@ def main():
     print("=" * 60)
     print("Semicoherent combination from theoretical noise covariance")
     print("=" * 60)
-    print(f"seed={SEED}, f0={F0:.1f} Hz, Mc={MC_SOLAR:.3g} Msun, F_S={F_S:.1f} Hz")
+    print(f"seed={SEED}, f0=auto (midpoint), Mc={MC_SOLAR:.3g} Msun, F_S={F_S:.1f} Hz")
     print("Using no time-domain noise injection; C comes from the expected NUFFT PSD transfer.")
 
     D = build_signal()
