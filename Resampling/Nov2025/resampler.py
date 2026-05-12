@@ -1,10 +1,51 @@
 """Defining the core :class:`resampler` class.
 """
-__all__ = ["Resampler"]
+__all__ = ["Resampler", "clear_plan_cache"]
 
 import numpy as np
 import numpy.typing as npt
 import finufft
+
+
+# FFTW planner flags (from fftw3.h). finufft's ``fftw`` option takes these
+# integer constants directly, so we hard-code them rather than depending on pyfftw.
+_FFTW_MEASURE = 0
+_FFTW_ESTIMATE = 64
+_FFTW_PATIENT = 32
+
+# Process-wide plan cache. finufft.Plan objects are reusable across calls --
+# only setpts() and execute() depend on the data -- so reusing a plan
+# amortises the FFTW planning cost. Mirrors the plan-caching pattern used in
+# pycbc.fft.fftw. Not thread-safe: if multiple threads share a Resampler
+# they will race on plan state, so call clear_plan_cache() and build per
+# thread if you need that.
+_PLAN_CACHE: dict = {}
+
+
+def _get_or_make_plan(bin_no, *, eps, isign, nthreads, dtype, upsampfac, fftw_flag):
+    """Return a cached finufft.Plan or build (and cache) a new one."""
+    key = (bin_no, float(eps), int(isign), int(nthreads), str(dtype),
+           float(upsampfac), int(fftw_flag))
+    plan = _PLAN_CACHE.get(key)
+    if plan is None:
+        plan = finufft.Plan(
+            nufft_type=1,
+            n_modes_or_dim=(bin_no,),
+            isign=isign,
+            eps=eps,
+            nthreads=nthreads,
+            dtype=dtype,
+            upsampfac=upsampfac,
+            fftw=fftw_flag,
+        )
+        _PLAN_CACHE[key] = plan
+    return plan
+
+
+def clear_plan_cache() -> None:
+    """Drop all cached finufft plans (releases their internal buffers)."""
+    _PLAN_CACHE.clear()
+
 
 class Resampler(object):
     """ Resample a timeseries and computes its FFT
@@ -25,34 +66,88 @@ class Resampler(object):
     freqs : array
         Frequencies of the generated spectra. Units of radians
     weights : array (complex)
-        Fourier weights of the spectra. 
+        Fourier weights of the spectra.
     """
-    def __init__(self, **kwws) -> None:
-        """Constructor"""
+    def __init__(self, nthreads: int = 4, eps: float = 1e-6, *,
+                 precision: str = "double", upsampfac: float = 1.25,
+                 fftw_measure: bool = False, **kwws) -> None:
+        """Constructor
+
+        Parameters
+        ----------
+        nthreads : int
+            Number of threads passed to the finufft plan. Defaults to 4.
+        eps : float
+            Requested NUFFT relative tolerance. Defaults to 1e-6 (finufft default).
+        precision : {"double", "single"}, optional
+            "single" runs the NUFFT in complex64 -- roughly 2x faster and
+            half the memory, but limited to eps >= 1e-6. Defaults to "double".
+        upsampfac : float, optional
+            finufft upsampling factor. 1.25 is the fast/low-precision path
+            (valid for eps >= 1e-6) and is the default here -- the finufft
+            internal default is 2.0. Use 2.0 if you need eps < 1e-9.
+        fftw_measure : bool, optional
+            If True, plans use FFTW_MEASURE instead of FFTW_ESTIMATE: slower
+            to plan but faster to execute. Plans are cached process-wide,
+            so the planning cost is paid once per (size, precision, ...) combo.
+        """
         self.timeseries = None # Replace with dict if multiple detectors
         self.resampled_time = None # Replace with dict if multiple detectors
-    
+        self.nthreads = nthreads
+        self.eps = eps
+        self.precision = precision
+        self.upsampfac = upsampfac
+        self.fftw_flag = _FFTW_MEASURE if fftw_measure else _FFTW_ESTIMATE
+
+    @property
+    def _complex_dtype(self):
+        return np.complex64 if self.precision == "single" else np.complex128
+
+    @property
+    def _real_dtype(self):
+        return np.float32 if self.precision == "single" else np.float64
+
+    @property
+    def _plan_dtype_str(self) -> str:
+        return "complex64" if self.precision == "single" else "complex128"
+
     def nufft(self) -> None:
         """Performs the NUFFT computing the Fourier frequncies and weights.
-        Uses the (-) sign convention to match np.fft.fft
+        Uses the (-) sign convention to match np.fft.fft.
+
+        Built on the finufft plan interface (``finufft.Plan``) with
+        multithreading (``self.nthreads``) for maximum throughput. Plans are
+        cached process-wide, so repeated calls with the same problem size
+        and precision skip the planning cost entirely.
         """
         signal = self.timeseries
         tau = self.resampled_time
         bin_no = len(tau)
 
         # Rescale time to [-pi, pi)
-        scale = (2*np.pi) / (tau[-1] - tau[0]) 
-        tau_scaled = scale * (tau-tau[0])
+        scale = (2*np.pi) / (tau[-1] - tau[0])
+        tau_scaled = scale * (tau - tau[0])
         bins = np.arange(bin_no) - bin_no//2
         freqs = bins * scale
-        
-        weights = finufft.nufft1d1(tau_scaled, np.asarray(signal, dtype=complex), bin_no, isign = -1)
+
+        plan = _get_or_make_plan(
+            bin_no,
+            eps=self.eps,
+            isign=-1,
+            nthreads=self.nthreads,
+            dtype=self._plan_dtype_str,
+            upsampfac=self.upsampfac,
+            fftw_flag=self.fftw_flag,
+        )
+        plan.setpts(np.ascontiguousarray(tau_scaled, dtype=self._real_dtype))
+        weights = plan.execute(np.ascontiguousarray(signal, dtype=self._complex_dtype))
+
         self.freqs = freqs
         self.weights = weights
 
     # BE VERY CAREFUL WITH THIS, USES DIFFERENT TAU SIGN CONVENTION + MIGHT HAVE OTHER ISSUES
     # def nufft_real(self) -> None:
-    #     """In principal this may use half the memory storage?. 
+    #     """In principal this may use half the memory storage?.
     #     Be careful about different normalization because of different length outputs
     #     """
     #     signal = self.timeseries
@@ -62,7 +157,7 @@ class Resampler(object):
 
     #     scale = (2*np.pi) / (tau[-1] - tau[0])
     #     tau_scaled = scale * (tau-tau[0]) - np.pi
-        
+
     #     bins = np.arange(bin_no) # no negative frequencies
     #     freqs = bins * scale
     #     normalisation = bin_no // 2
@@ -76,7 +171,7 @@ class Resampler(object):
     def weights_normalized(self) -> npt.NDArray[np.float64]:
         """Returns the normalized Fourier weights such that a pure trig function has power=1 regardless of length"""
         return self.weights/len(self.weights)
-    
+
     @property
     def power(self) -> npt.NDArray[np.float64]:
         """Computes the Fourier power values"""
@@ -85,7 +180,7 @@ class Resampler(object):
     @property
     def power_normalized(self) -> npt.NDArray[np.float64]:
         """Returns the normalized Fourier powers such that a pure trig function has power=1 regardless of length"""
-        # the normalization of a nufft and nufft_real are different because 
+        # the normalization of a nufft and nufft_real are different because
         # of their different lengths
         return abs(self.weights/len(self.weights))**2
 

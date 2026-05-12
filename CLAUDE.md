@@ -50,7 +50,9 @@ Prefer making changes in `Resampling/Nov2025/` unless the task explicitly target
 
 ## Environment
 
-The repository includes a Conda environment named `PBH` (`environment.yml`). When working on this project, activate it with `conda activate PBH`.
+The repository includes a Conda environment named `PBH` (`environment.yml`). Run all commands inside it via `conda run -n PBH ...` (e.g. `conda run -n PBH python script.py`, `conda run -n PBH pytest ...`). Do **not** use `conda activate PBH` or `conda init` — the non-interactive shell used by agents is not configured for activation, and `conda run` is the reliable way to dispatch into the environment.
+
+For ad-hoc scripts and scratch experiments, write the file to `/tmp/` and execute it from there (e.g. `conda run -n PBH python /tmp/scratch.py`) rather than creating files inside the repo. This keeps the working tree clean of throwaway artifacts.
 
 ## Practical guidance for agents
 
