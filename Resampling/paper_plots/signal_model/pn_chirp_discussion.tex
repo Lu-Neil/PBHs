@@ -1,0 +1,360 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\title{Notes on 0PN, 1PN, and TaylorF2 Chirp Parametrisations}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{TaylorF2 phase convention}
+
+The TaylorF2 waveform is a frequency-domain stationary-phase approximation.
+For a nonspinning binary, its phase can be written schematically as
+\begin{equation}
+    \Psi(f)
+    = 2\pi f t_c - \phi_c - \frac{\pi}{4}
+    + \frac{3}{128\eta} v^{-5}
+      \sum_{k=0}^{7}
+      \left[a_k + b_k \log v\right] v^k ,
+    \label{eq:taylorf2_phase}
+\end{equation}
+where
+\begin{equation}
+    v = (\pi M f)^{1/3}, \qquad
+    M = m_1 + m_2, \qquad
+    \eta = \frac{m_1 m_2}{(m_1 + m_2)^2}.
+\end{equation}
+The index $k$ corresponds to PN order $k/2$. Thus terms through $k=7$
+correspond to phase corrections through 3.5PN. In the LAL TaylorF2 call used
+here, with no explicit phase-order override and zero spins, the default
+nonspinning TaylorF2 phasing includes nonzero terms up to 3.5PN.
+
+\section{The 1PN TaylorF2 phase term}
+
+Keeping only the Newtonian and 1PN TaylorF2 phase terms gives
+\begin{equation}
+    \Psi_{\mathrm{0PN+1PN}}(f)
+    =
+    2\pi f t_c - \phi_c - \frac{\pi}{4}
+    + \frac{3}{128\eta} v^{-5}
+      \left[
+        1 + \alpha_2 v^2
+      \right],
+    \label{eq:taylorf2_1pn}
+\end{equation}
+with
+\begin{equation}
+    \alpha_2 = \frac{3715}{756} + \frac{55}{9}\eta .
+\end{equation}
+For an equal-mass binary, $\eta = 1/4$, so
+\begin{equation}
+    \alpha_2 = \frac{3715}{756} + \frac{55}{36}.
+\end{equation}
+
+\section{Factoring out frequency}
+
+Up to the constant phase offset $-\phi_c - \pi/4$, the 0PN+1PN phase can be
+written as
+\begin{equation}
+    \Psi_{\mathrm{0PN+1PN}}(f)
+    =
+    \mathrm{const}
+    + 2\pi f t_c
+    + A f^{-5/3}
+    + B f^{-1},
+\end{equation}
+where
+\begin{align}
+    A &= \frac{3}{128\eta}(\pi M)^{-5/3}, \\
+    B &= \frac{3}{128\eta}\alpha_2(\pi M)^{-1}.
+\end{align}
+Therefore one may factor out $2\pi f$ and define an effective
+frequency-dependent time coordinate,
+\begin{equation}
+    \Psi_{\mathrm{0PN+1PN}}(f)
+    =
+    \mathrm{const}
+    + 2\pi f \, \tau_{\mathrm{F2}}(f),
+\end{equation}
+where
+\begin{equation}
+    \tau_{\mathrm{F2}}(f)
+    =
+    t_c
+    + \frac{A}{2\pi} f^{-8/3}
+    + \frac{B}{2\pi} f^{-2}.
+\end{equation}
+
+The same algebraic factorisation is possible through 3.5PN. In general,
+\begin{equation}
+    \Psi(f)
+    =
+    \mathrm{const}
+    + 2\pi f\,\tau_{\mathrm{F2}}(f),
+\end{equation}
+with
+\begin{equation}
+    \tau_{\mathrm{F2}}(f)
+    =
+    t_c
+    + \frac{3}{256\pi\eta}
+      \sum_{k=0}^{7}
+      \left[a_k + b_k \log\left((\pi M f)^{1/3}\right)\right]
+      (\pi M)^{(k-5)/3}
+      f^{(k-8)/3}.
+    \label{eq:tau_f2_factorised}
+\end{equation}
+The corresponding powers of $f$ inside $\tau_{\mathrm{F2}}$ are
+\begin{center}
+\begin{tabular}{c|c|c}
+PN order & $k$ & power in $\tau_{\mathrm{F2}}(f)$ \\
+\hline
+0PN   & 0 & $f^{-8/3}$ \\
+0.5PN & 1 & $f^{-7/3}$ \\
+1PN   & 2 & $f^{-2}$ \\
+1.5PN & 3 & $f^{-5/3}$ \\
+2PN   & 4 & $f^{-4/3}$ \\
+2.5PN & 5 & $f^{-1}$ \\
+3PN   & 6 & $f^{-2/3}$ \\
+3.5PN & 7 & $f^{-1/3}$
+\end{tabular}
+\end{center}
+Some PN orders also include logarithmic corrections.
+
+This factorisation is an algebraic statement about the phase. For the physical
+chirp trajectory, the relevant time-frequency relation is instead
+\begin{equation}
+    t(f) = \frac{1}{2\pi}\frac{d\Psi}{df}.
+    \label{eq:stationary_phase_time}
+\end{equation}
+This derivative relation is what should be used when extracting a chirp
+trajectory from TaylorF2.
+
+\section{0PN beta parametrisation}
+
+At Newtonian order, the chirp can be written explicitly as
+\begin{equation}
+    f(\beta,t)
+    =
+    f_0
+    \left(
+      1 - \frac{8}{3}\beta t
+    \right)^{-3/8}.
+    \label{eq:f_0pn_beta}
+\end{equation}
+Here $f_0$ is the frequency at reference time $t=0$, and
+\begin{equation}
+    \beta
+    =
+    \frac{96}{5}
+    \pi^{8/3}
+    \left(\frac{G M_c}{c^3}\right)^{5/3}
+    f_0^{8/3},
+    \label{eq:beta_definition}
+\end{equation}
+where
+\begin{equation}
+    M_c
+    =
+    \frac{(m_1m_2)^{3/5}}{(m_1 + m_2)^{1/5}}
+\end{equation}
+is the chirp mass. The corresponding phase evolution is
+\begin{equation}
+    \phi(\beta,t)
+    =
+    -\frac{6\pi}{5}
+    f_0
+    \frac{
+      \left(
+        1-\frac{8}{3}\beta t
+      \right)^{5/8}
+    }{\beta}
+    + \phi_0 .
+    \label{eq:phi_0pn_beta}
+\end{equation}
+An additive constant may be chosen so that $\phi(0)=\phi_0$ if desired.
+
+\section{Can the same construction be done at 1PN?}
+
+At 1PN, the frequency evolution is still separable, but it is no longer
+described by the single clean 0PN beta form. The 1PN evolution may be written
+as
+\begin{equation}
+    \frac{df}{dt}
+    =
+    \frac{96}{5}
+    \pi^{8/3}
+    \left(\frac{G M_c}{c^3}\right)^{5/3}
+    f^{11/3}
+    \left[
+      1
+      -
+      \alpha
+      \left(
+        \pi \frac{G M}{c^3} f
+      \right)^{2/3}
+    \right],
+    \label{eq:dfdt_1pn}
+\end{equation}
+where
+\begin{equation}
+    \alpha = \frac{743}{336} + \frac{11}{4}\eta .
+\end{equation}
+For equal masses, $\eta=1/4$, giving $\alpha = 487/168$.
+
+Using the same $\beta$ as in Eq.~\eqref{eq:beta_definition}, define
+\begin{equation}
+    x = \frac{f}{f_0},
+    \qquad
+    \epsilon
+    =
+    \alpha
+    \left(
+      \pi \frac{G M}{c^3} f_0
+    \right)^{2/3}.
+\end{equation}
+Then Eq.~\eqref{eq:dfdt_1pn} becomes
+\begin{equation}
+    \frac{df}{dt}
+    =
+    \beta f_0 x^{11/3}
+    \left[
+      1 - \epsilon x^{2/3}
+    \right].
+\end{equation}
+For a generic mass ratio, $\epsilon$ is an additional independent parameter.
+However, for the equal-mass case used in the numerical examples, $\eta=1/4$ and
+\begin{equation}
+    M = 2^{6/5} M_c .
+\end{equation}
+Therefore $\epsilon$ can be eliminated in favour of $\beta$ and $f_0$.  From
+Eq.~\eqref{eq:beta_definition},
+\begin{equation}
+    \left(
+      \frac{G M_c}{c^3}
+    \right)^{5/3}
+    =
+    \frac{5\beta}{96\pi^{8/3}f_0^{8/3}},
+\end{equation}
+so that
+\begin{equation}
+    \pi \frac{G M}{c^3} f_0
+    =
+    \left(
+      \frac{5\beta}{24\pi f_0}
+    \right)^{3/5}.
+\end{equation}
+For equal masses, $\alpha=487/168$, and hence
+\begin{equation}
+    \epsilon(\beta, f_0)
+    =
+    \frac{487}{168}
+    \left(
+      \frac{5\beta}{24\pi f_0}
+    \right)^{2/5}.
+    \label{eq:epsilon_equal_mass}
+\end{equation}
+The equal-mass 1PN chirp can therefore be written as
+\begin{equation}
+    \frac{df}{dt}
+    =
+    \beta f_0 x^{11/3}
+    \left[
+      1
+      -
+      \frac{487}{168}
+      \left(
+        \frac{5\beta}{24\pi f_0}
+      \right)^{2/5}
+      x^{2/3}
+    \right],
+    \qquad
+    x = \frac{f}{f_0}.
+    \label{eq:dfdt_1pn_equal_mass_beta}
+\end{equation}
+Thus, if $f_0$ is fixed, the equal-mass 1PN chirp is still a one-parameter
+family labelled by $\beta$.  If $f_0$ is allowed to vary, then $\beta$ alone is
+not enough; the 1PN correction depends on the dimensionless combination
+$\beta/f_0$.
+
+A slightly cleaner equal-mass parametrisation is obtained by defining
+\begin{equation}
+    \lambda
+    =
+    \pi \frac{G M}{c^3} f_0
+    =
+    \left(
+      \frac{5\beta}{24\pi f_0}
+    \right)^{3/5}.
+\end{equation}
+Then
+\begin{equation}
+    \frac{d x}{d(f_0 t)}
+    =
+    \frac{24\pi}{5}
+    \lambda^{5/3}
+    x^{11/3}
+    \left[
+      1
+      -
+      \frac{487}{168}
+      \lambda^{2/3}x^{2/3}
+    \right],
+    \qquad
+    x=\frac{f}{f_0}.
+    \label{eq:dfdt_1pn_equal_mass_lambda}
+\end{equation}
+This form shows explicitly that $f(t)=f_0 x(f_0 t;\lambda)$ for equal masses.
+
+The time-frequency relation can be integrated analytically:
+\begin{equation}
+    t(f)
+    =
+    \frac{1}{\beta}
+    \int_1^{f/f_0}
+    \frac{x^{-11/3}}{1-\epsilon x^{2/3}}\,dx .
+\end{equation}
+With the substitution
+\begin{equation}
+    u = x^{-2/3},
+\end{equation}
+this becomes
+\begin{equation}
+    t(f)
+    =
+    \frac{3}{2\beta}
+    \left[
+      \frac{u^4}{4}
+      + \frac{\epsilon u^3}{3}
+      + \frac{\epsilon^2 u^2}{2}
+      + \epsilon^3 u
+      + \epsilon^4 \log|u-\epsilon|
+    \right]_{u=(f/f_0)^{-2/3}}^{u=1}.
+    \label{eq:t_of_f_1pn}
+\end{equation}
+This gives an analytic implicit relation $t=t(f)$. In contrast to the 0PN
+case, solving explicitly for $f(t)$ does not produce a simple closed form like
+Eq.~\eqref{eq:f_0pn_beta}. In practice one would either numerically invert
+Eq.~\eqref{eq:t_of_f_1pn} or integrate the 1PN ODE directly.
+
+The phase can also be written analytically as a function of frequency:
+\begin{equation}
+    \phi(f)
+    =
+    \phi_0
+    +
+    2\pi
+    \int_{f_0}^{f}
+    f'
+    \frac{dt}{df'}\,df'.
+\end{equation}
+Again, this naturally gives $\phi(f)$ rather than a simple explicit
+$\phi(t)$.
+
+\end{document}
