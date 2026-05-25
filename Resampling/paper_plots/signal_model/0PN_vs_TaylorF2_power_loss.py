@@ -7,7 +7,7 @@ import sys
 import lal
 import lalsimulation as lalsim
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "Nov2025"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "Nov2025"))
 from resampler import Resampler
 
 

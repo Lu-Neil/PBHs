@@ -25,7 +25,7 @@ def domega_dt_0pn(omega, M_sec):
     return (24.0 / 5.0) * (M_sec**(5/3)) * (omega**(11/3))
 
 # --- 2. Noise PSD ---
-asd_data = np.loadtxt("../asd.txt")
+asd_data = np.loadtxt("../../asd.txt")
 asd_freq = asd_data[:, 0]
 asd = asd_data[:, 1]
 valid_asd = np.isfinite(asd_freq) & np.isfinite(asd) & (asd_freq > 0.0) & (asd > 0.0)
