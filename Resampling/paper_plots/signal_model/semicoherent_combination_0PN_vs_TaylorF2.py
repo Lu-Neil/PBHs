@@ -12,7 +12,7 @@ G = lal.G_SI
 c = lal.C_SI
 
 # --- Binary System Parameters ---
-Mc_values_msun = [1e-3, 1e-2, 1e-1]
+Mc_values_msun = [1e-2, 1e-1]
 q = 1
 eta = q / (1 + q) ** 2
 

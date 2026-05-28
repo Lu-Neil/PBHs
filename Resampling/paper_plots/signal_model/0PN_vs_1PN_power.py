@@ -13,7 +13,7 @@ eta = q / (1 + q)**2
 
 # --- Simulation Limits ---
 f0 = 20.0             # Start GW frequency (Hz)
-f_stop = 200.0        # Stop GW frequency (Hz)
+f_stop = 500.0        # Stop GW frequency (Hz)
 
 # --- 1. Define Frequency Evolution ---
 def domega_dt_1pn(omega, M_sec):
