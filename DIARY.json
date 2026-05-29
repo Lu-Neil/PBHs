@@ -1,0 +1,17 @@
+{
+  "entries": [
+    {
+      "date": "2026-05-29",
+      "notes": [
+        "Created DIARY.json for compact per-session notes.",
+        "Updated CODEX.md to require reading recent diary notes at session start and recording brief change notes.",
+        "Clarified in CODEX.md that Resampling/paper_plots is now the primary active working folder instead of Resampling/Nov2025.",
+        "Improved CODEX.md guidance to distinguish current paper_plots work from older Nov2025 pipeline internals and added practical verification notes.",
+        "Updated Resampling/Nov2025/PBH-5vec_error.py to plot recovered 5-vector power versus fractional bin offset and save the diagnostic figure at Resampling/Nov2025/demonstrating_behaviour/figs/pbh_5vec_bin_offset_power.png.",
+        "Resolved the apparent 20% off-bin expectation mismatch: the bare resampler already matched the exact sampled NUDFT kernel, while the 5-vector tests needed the exact five-bin finite-sample NUDFT projection rather than a scalar carrier-loss model.",
+        "Added _expected_5vec_bins in Resampling/Nov2025/fiveVec_resampler_utils.py and tightened uniform off-bin/gapped 5-vector test tolerances after comparing h, hp, hc, ratios, and detection statistic against that exact projection.",
+        "Verified the Nov2025 regression suite with conda run -n PBH pytest Resampling/Nov2025/test_suite -q; result was 28 passed."
+      ]
+    }
+  ]
+}

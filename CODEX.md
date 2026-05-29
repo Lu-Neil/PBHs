@@ -1,8 +1,10 @@
 # CODEX.md
 
-## Project overview
+## Project Overview
 
-This repository is a research codebase for gravitational-wave data analysis. The main active workflow is a signal-search pipeline that targets sources with a prescribed phase evolution, remaps the data into a nonuniform time coordinate `tau`, and uses a non-uniform FFT (via `finufft`) to recover signals that become approximately monochromatic in that resampled coordinate.
+This repository is a research codebase for gravitational-wave data analysis. The main active workflow is currently the paper-plot and supporting-calculation work in `Resampling/paper_plots/`. Those scripts draw on the older `Resampling/Nov2025/` resampling and 5-vector implementation where needed.
+
+The underlying search idea targets sources with a prescribed phase evolution, remaps the data into a nonuniform time coordinate `tau`, and uses a non-uniform FFT (via `finufft`) to recover signals that become approximately monochromatic in that resampled coordinate.
 
 The current science focus in the active code is PBH-inspired/chirping signals plus sidereal detector modulation:
 
@@ -12,50 +14,59 @@ The current science focus in the active code is PBH-inspired/chirping signals pl
 - extract the carrier and the four sidereal sidebands as a 5-vector
 - match against detector-response templates to estimate signal amplitude and polarization content
 
-In other words, this is not a generic data-processing repo: it is a gravitational-wave search prototype built around phase-demodulation, nonuniform Fourier methods, and 5-vector signal reconstruction.
+In other words, this is not a generic data-processing repo: it is a gravitational-wave search prototype built around phase-demodulation, nonuniform Fourier methods, and 5-vector signal reconstruction, with the current active work focused on paper-ready demonstrations and sensitivity/modeling calculations.
 
-## Codex operating notes
+## Codex Operating Notes
 
-- Prefer changes in `Resampling/Nov2025/` unless the task explicitly targets historical or exploratory code.
-- Read the relevant tests before changing core resampling or 5-vector behavior.
+- At the start of each session, read the last two days of notes in `DIARY.json` if the file exists.
+- When making changes, add a brief dated note to `DIARY.json` describing what changed. Keep entries compact.
+- Prefer changes in `Resampling/paper_plots/`, which is now the primary active working area, unless the user explicitly targets older pipeline code.
+- Treat `Resampling/Nov2025/` as an implementation and regression-test reference for the current paper scripts, not as the default editing target.
+- Read the relevant tests before changing core resampling or 5-vector behavior in `Resampling/Nov2025/`.
 - Use `rg`/`rg --files` for repository search.
 - Keep scratch scripts outside the repository, preferably under `/tmp/`.
 - Preserve user or local working-tree changes. Do not clean generated caches, plots, notebooks, or unrelated files unless asked.
-- For edits to Jupytext-backed analysis files, preserve the paired `py:percent` structure.
+- Many analysis files are scripts that generate figures. Avoid changing saved figures in `figs/` unless that is part of the requested work.
+- For edits to Jupytext-backed analysis files, preserve the paired `py:percent` structure and notebook metadata.
 
-## Where to start
+## Where To Start
 
-- `Resampling/Nov2025/resampler.py`
-  Core `Resampler` class. Wraps `finufft` and computes spectra on a resampled time axis.
-- `Resampling/Nov2025/five_vec.py`
-  Implements the 5-vector detector-response model and sidereal modulation quantities.
-- `Resampling/Nov2025/fiveVec_resampler_utils.py`
-  Best end-to-end reference for the current pipeline: synthetic signal generation, PBH chirps, gaps, template construction, and estimators.
-- `Resampling/Nov2025/test_suite/`
-  Most useful regression tests for understanding intended behavior.
-- `Resampling/Nov2025/PBH-5vec.py` and `Resampling/Nov2025/PBH-5vec_gaps.py`
-  Jupytext-backed analysis scripts that show the intended scientific workflow.
+- `Resampling/paper_plots/`
+  Primary active working area for current paper figures, demonstrations, and supporting calculations.
+- `Resampling/paper_plots/resampling/`
+  Current resampling demonstrations and NUFFT/stroboscopic comparison scripts.
+- `Resampling/paper_plots/signal_model/`
+  Current signal-model comparison and post-Newtonian validity scripts.
+- `Resampling/paper_plots/distance_sensitivity/`
+  Current sensitivity and distance-reach calculations.
+- `Resampling/Nov2025/`
+  Useful implementation and regression-test reference for the underlying resampler and 5-vector pipeline, but no longer the primary working folder.
 
-## Repo layout
+## Repo Layout
 
-- `Resampling/Nov2025/` is the main active implementation area.
+- `Resampling/paper_plots/` is the main active implementation and analysis area.
+  - `resampling/`: resampling examples, NUFFT/stroboscopic comparisons, and related generated figures.
+  - `signal_model/`: 0PN/1PN/TaylorF2/3.5PN comparisons, dephasing plots, and paper text snippets.
+  - `distance_sensitivity/`: sensitivity, distance-reach, and time-frequency integral calculations.
+- `Resampling/Nov2025/` remains a valuable implementation and test reference for the resampler and 5-vector pipeline.
 - `Resampling/NUFFT/`, `Resampling/5-vector/`, `Resampling/5_vec+doppler/`, `Resampling/Template_grid/`, and related notebooks are valuable historical/exploratory references, but many are prototypes rather than hardened library code.
 - `Resampling/Defunct/` is archival.
 - Top-level notebooks and plotting artifacts are mostly exploratory analysis outputs.
 
-Prefer making changes in `Resampling/Nov2025/` unless the task explicitly targets an older branch of the work.
+Prefer making changes in `Resampling/paper_plots/` unless the task explicitly targets another branch of the work.
 
-## Scientific and coding conventions
+## Scientific And Coding Conventions
 
 - Internal frequencies in the active resampler code are usually angular frequencies in radians per second, not Hz. Check carefully before changing formulas.
+- Paper-plot scripts often present frequencies in Hz while calling into older internals. Verify unit conversions at boundaries between `paper_plots` scripts and `Nov2025` code.
 - The resampled coordinate `tau` is constructed from the assumed phase model. Small sign or normalization mistakes can silently break recovery.
 - The 5-vector logic assumes sidereal sidebands at offsets of `0, +/- 1/day, +/- 2/day` around the carrier.
 - Several validation checks use Dirichlet-kernel/bin-mismatch corrections when the recovered carrier does not land exactly on a Fourier bin.
 - Tests are stochastic and use random source/geometry parameters, so keep tolerances and statistical intent intact unless you are deliberately redesigning them.
 
-## Notebooks and paired files
+## Notebooks And Paired Files
 
-`Resampling/Nov2025/jupytext.toml` pairs notebooks with `py:percent` files. If you edit a notebook-backed analysis in that directory, preserve the Jupytext structure instead of converting it into plain script format.
+Some analysis scripts, including files under `Resampling/paper_plots/`, use Jupytext `py:percent` structure. `Resampling/Nov2025/jupytext.toml` also pairs notebooks with `py:percent` files. If you edit notebook-backed analysis, preserve the Jupytext cell markers and metadata instead of converting it into plain script format.
 
 ## Environment
 
@@ -63,23 +74,25 @@ The repository includes a Conda environment named `PBH` (`environment.yml`). Run
 
 For ad-hoc scripts and scratch experiments, write the file to `/tmp/` and execute it from there (e.g. `conda run -n PBH python /tmp/scratch.py`) rather than creating files inside the repo. This keeps the working tree clean of throwaway artifacts.
 
-## Practical guidance for Codex
+## Practical Guidance For Codex
 
-- When you need the current pipeline behavior, read the tests before changing the implementation.
-- Use `conda run -n PBH pytest Resampling/Nov2025/test_suite -q` for the most relevant verification pass.
+- Run paper-plot scripts from the repository root with `conda run -n PBH python Resampling/paper_plots/.../script.py` unless the script itself documents a different working directory.
+- For current paper workflow changes, verify the specific edited script where practical and check that expected outputs under the local `figs/` directory are produced.
+- When you need current paper behavior, read the relevant script in `Resampling/paper_plots/` first, then trace imports into `Resampling/Nov2025/` only as needed.
+- When changing shared resampling or 5-vector internals, use `conda run -n PBH pytest Resampling/Nov2025/test_suite -q` for the most relevant verification pass.
 - Be careful with imports: some analysis files are written to run as local scripts, while tests import them as package modules.
 - Avoid spending time cleaning `__pycache__`, plot outputs, or old exploratory notebooks unless the user asks.
-- Do not treat sparse top-level docs as authoritative; the code in `Resampling/Nov2025/` is the best source of truth.
+- Do not treat sparse top-level docs as authoritative; `Resampling/paper_plots/` is the best source of truth for current work, while `Resampling/Nov2025/` remains the best reference for older core pipeline internals.
 
-## One-line summary
+## One-Line Summary
 
 This project develops a gravitational-wave search pipeline that targets signals with a chosen phase evolution, demodulates them through nonuniform resampling, and uses a NUFFT plus 5-vector sidereal template matching to identify and reconstruct those signals.
 
 ---
 
-## Pipeline development roadmap
+## Pipeline Development Roadmap
 
-The items below represent the major open tasks needed to turn the current prototype into a deployable search pipeline. **This is a rough guide only -- the exact priorities and ordering are still evolving.**
+The items below represent the major open tasks needed to turn the prototype into a deployable search pipeline. **This roadmap is planning context, not a statement that `Resampling/Nov2025/` is the active working area. Current implementation and paper-facing work should still start in `Resampling/paper_plots/` unless the user says otherwise.**
 
 ### 1. NUFFT noise transfer function (analytical + numerical)
 
@@ -140,7 +153,7 @@ After a candidate: estimate `(Mc, f0, beta, ra, dec, eta, psi)`. The 5-vector am
 
 ---
 
-## bilby usage notes
+## bilby Usage Notes
 
 `bilby` is available in the `PBH` environment and is used for generating simulated detector noise:
 

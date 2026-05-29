@@ -112,6 +112,19 @@ def _sampled_bin_factor(resampler, omega0, tau):
     return bin_factor, delta_omega
 
 
+def _expected_5vec_bins(signal, tau, resampler, omega0):
+    """Return the exact finite-sample NUDFT values at the extracted 5 bins."""
+    tau_offset = tau - tau[0]
+    side_day = 86164.09053083288
+    offsets = 2 * np.pi / side_day * np.arange(-2, 3)
+    expected_X = np.empty(5, dtype=complex)
+    for i, offset in enumerate(offsets):
+        idx = np.abs(resampler.freqs - (omega0 + offset)).argmin()
+        bin_freq = resampler.freqs[idx]
+        expected_X[i] = np.mean(signal * np.exp(-1j * bin_freq * tau_offset))
+    return expected_X
+
+
 def _expected_carrier_response(resampler, omega0, tau, h0, gamma, gap_mask=None):
     bin_factor, delta_omega = _sampled_bin_factor(resampler, omega0, tau)
     if np.isscalar(h0):
@@ -240,20 +253,17 @@ def check_PBH_signal(
     hc_ratio = hc_est / h_est
     h_reconstruct = np.sqrt(abs(hp_est) ** 2 + abs(hc_est) ** 2)
 
-    expected_h, _, delta_omega = _expected_carrier_response(
-        resampler,
-        omega0,
-        tau,
-        h0,
-        gamma,
-        gap_mask=gap_mask,
-    )
-    expected_hp = expected_h * sidereal.H_p
-    expected_hc = expected_h * sidereal.H_c
+    expected_X = _expected_5vec_bins(signal, tau, resampler, omega0)
+    expected_h = _estimator(expected_X, template_X)
+    expected_hp, expected_hc = _joint_estimator(expected_X, template_Xp, template_Xc)
+    expected_hp_ratio = expected_hp / expected_h
+    expected_hc_ratio = expected_hc / expected_h
+    expected_h_reconstruct = np.sqrt(abs(expected_hp) ** 2 + abs(expected_hc) ** 2)
+    _, delta_omega = _sampled_bin_factor(resampler, omega0, tau)
     detected_stat = _detection_stat(template_Xp, template_Xc, hp_est, hc_est)
     injected_stat = _detection_stat(template_Xp, template_Xc, expected_hp, expected_hc)
 
-    assert np.isclose(h_reconstruct, np.abs(expected_h), rtol=h_mag_err, atol=0.0)
+    assert np.isclose(h_reconstruct, expected_h_reconstruct, rtol=h_mag_err, atol=0.0)
     assert np.isclose(np.abs(h_est), np.abs(expected_h), rtol=h_mag_err, atol=0.0)
     assert np.isclose(
         _wrapped_phase_diff(np.angle(h_est), np.angle(expected_h)),
@@ -263,16 +273,16 @@ def check_PBH_signal(
     assert np.isclose(detected_stat, injected_stat, rtol=detection_stat_err, atol=0.0)
 
     if check_ratios:
-        assert np.isclose(np.abs(hp_ratio), np.abs(sidereal.H_p), rtol=ratio_mag_err, atol=0.0)
-        assert np.isclose(np.abs(hc_ratio), np.abs(sidereal.H_c), rtol=ratio_mag_err, atol=0.0)
+        assert np.isclose(np.abs(hp_ratio), np.abs(expected_hp_ratio), rtol=ratio_mag_err, atol=0.0)
+        assert np.isclose(np.abs(hc_ratio), np.abs(expected_hc_ratio), rtol=ratio_mag_err, atol=0.0)
         if ratio_phase_err is not None:
             assert np.isclose(
-                _wrapped_phase_diff(np.angle(hp_ratio), np.angle(sidereal.H_p)),
+                _wrapped_phase_diff(np.angle(hp_ratio), np.angle(expected_hp_ratio)),
                 0.0,
                 atol=ratio_phase_err,
             )
             assert np.isclose(
-                _wrapped_phase_diff(np.angle(hc_ratio), np.angle(sidereal.H_c)),
+                _wrapped_phase_diff(np.angle(hc_ratio), np.angle(expected_hc_ratio)),
                 0.0,
                 atol=ratio_phase_err,
             )
@@ -281,9 +291,9 @@ def check_PBH_signal(
             delta_omega / np.diff(resampler.freqs)[0],
             np.abs(h_est) / np.abs(expected_h) - 1,
             _wrapped_phase_diff(np.angle(h_est), np.angle(expected_h)),
-            np.abs(hp_ratio) / np.abs(sidereal.H_p) - 1,
-            _wrapped_phase_diff(np.angle(hp_ratio), np.angle(sidereal.H_p)),
-            np.abs(hc_ratio) / np.abs(sidereal.H_c) - 1,
-            _wrapped_phase_diff(np.angle(hc_ratio), np.angle(sidereal.H_c)),
+            np.abs(hp_ratio) / np.abs(expected_hp_ratio) - 1,
+            _wrapped_phase_diff(np.angle(hp_ratio), np.angle(expected_hp_ratio)),
+            np.abs(hc_ratio) / np.abs(expected_hc_ratio) - 1,
+            _wrapped_phase_diff(np.angle(hc_ratio), np.angle(expected_hc_ratio)),
         ]
     )

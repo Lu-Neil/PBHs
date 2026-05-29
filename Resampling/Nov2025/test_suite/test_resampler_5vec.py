@@ -1,6 +1,7 @@
 from importlib import import_module
 
 from ..five_vec import five_vec
+from ..fiveVec_resampler_utils import _expected_5vec_bins
 from ..resampler import Resampler
 import numpy as np
 from astropy.time import Time
@@ -47,24 +48,6 @@ def _time_domain_5vec(sidereal, t, tau):
     return template_X, template_Xp, template_Xc
 
 
-def _sampled_bin_factor(resampler, omega0, tau):
-    idx0 = np.abs(resampler.freqs - omega0).argmin()
-    delta_omega = omega0 - resampler.freqs[idx0]
-    tau_offset = tau - tau[0]
-    bin_factor = np.mean(np.exp(1j * delta_omega * tau_offset))
-    return bin_factor, delta_omega
-
-
-def _expected_carrier_response(resampler, omega0, tau, h0, gamma):
-    bin_factor, delta_omega = _sampled_bin_factor(resampler, omega0, tau)
-    if np.isscalar(h0):
-        target = h0 * np.exp(1j * gamma)
-    else:
-        target = np.mean(h0) * np.exp(1j * gamma)
-    expected_h = target * bin_factor
-    return expected_h, bin_factor, delta_omega
-
-
 def _detection_stat(template_Xp, template_Xc, hp_est, hc_est):
     return np.sum(np.abs(template_Xp) ** 4) * abs(hp_est) ** 2 + np.sum(np.abs(template_Xc) ** 4) * abs(hc_est) ** 2
 
@@ -79,11 +62,11 @@ MIDPOINT_FDOT_TOLERANCES = dict(
 )
 
 UNIFORM_FDOT_TOLERANCES = dict(
-    h_mag_err=2e-1,
-    h_phase_err=3e-1,
-    ratio_mag_err=5e-1,
-    ratio_phase_err=None,
-    detection_stat_err=3e-1,
+    h_mag_err=1e-4,
+    h_phase_err=5e-3,
+    ratio_mag_err=1e-3,
+    ratio_phase_err=5e-3,
+    detection_stat_err=1e-3,
     check_ratios=True,
 )
 
@@ -97,11 +80,11 @@ MIDPOINT_PBH_TOLERANCES = dict(
 )
 
 UNIFORM_PBH_TOLERANCES = dict(
-    h_mag_err=2e-1,
-    h_phase_err=3e-1,
-    ratio_mag_err=5e-1,
-    ratio_phase_err=None,
-    detection_stat_err=3e-1,
+    h_mag_err=1e-4,
+    h_phase_err=5e-3,
+    ratio_mag_err=1e-3,
+    ratio_phase_err=5e-3,
+    detection_stat_err=1e-3,
     check_ratios=True,
 )
 
@@ -167,11 +150,14 @@ def _check_fDot_signal(
     hp_ratio = hp_est / h_est
     hc_ratio = hc_est / h_est
 
-    # For nonuniform tau, the carrier leakage is set by the sampled complex kernel
-    # rather than a simple Dirichlet factor.
-    expected_h, _, _ = _expected_carrier_response(resampler, omega0, tau, h0, gamma)
-    expected_hp = expected_h * sidereal.H_p
-    expected_hc = expected_h * sidereal.H_c
+    # Off-bin 5-vector extraction is the exact five-bin NUDFT projection, not
+    # just a scalar carrier leakage factor multiplying the ideal sidebands.
+    expected_X = _expected_5vec_bins(signal, tau, resampler, omega0)
+    expected_h = _estimator(expected_X, template_X)
+    expected_hp = _estimator(expected_X, template_Xp)
+    expected_hc = _estimator(expected_X, template_Xc)
+    expected_hp_ratio = expected_hp / expected_h
+    expected_hc_ratio = expected_hc / expected_h
     detected_stat = _detection_stat(template_Xp, template_Xc, hp_est, hc_est)
     injected_stat = _detection_stat(template_Xp, template_Xc, expected_hp, expected_hc)
 
@@ -184,16 +170,16 @@ def _check_fDot_signal(
     assert np.isclose(detected_stat, injected_stat, rtol=detection_stat_err, atol=0.0)
 
     if check_ratios:
-        assert np.isclose(np.abs(hp_ratio), np.abs(sidereal.H_p), rtol=ratio_mag_err, atol=0.0)
-        assert np.isclose(np.abs(hc_ratio), np.abs(sidereal.H_c), rtol=ratio_mag_err, atol=0.0)
+        assert np.isclose(np.abs(hp_ratio), np.abs(expected_hp_ratio), rtol=ratio_mag_err, atol=0.0)
+        assert np.isclose(np.abs(hc_ratio), np.abs(expected_hc_ratio), rtol=ratio_mag_err, atol=0.0)
         if ratio_phase_err is not None:
             assert np.isclose(
-                _wrapped_phase_diff(np.angle(hp_ratio), np.angle(sidereal.H_p)),
+                _wrapped_phase_diff(np.angle(hp_ratio), np.angle(expected_hp_ratio)),
                 0.0,
                 atol=ratio_phase_err,
             )
             assert np.isclose(
-                _wrapped_phase_diff(np.angle(hc_ratio), np.angle(sidereal.H_c)),
+                _wrapped_phase_diff(np.angle(hc_ratio), np.angle(expected_hc_ratio)),
                 0.0,
                 atol=ratio_phase_err,
             )
@@ -207,10 +193,8 @@ def test_midpoint_fDot_signal():
 def test_uniform_fDot_signal():
     """Uniform off-bin fdot signal.
 
-    The carrier now uses the exact sampled-bin response; the remaining error is
-    dominated by the off-bin 5-vector sideband decomposition, so this test
-    focuses on the carrier recovery and leaves ratio validation to the midpoint
-    case.
+    The expectation is the exact five-bin NUDFT projection, including off-bin
+    sideband mixing in tau coordinates.
     """
     _check_fDot_signal(f0_setting="uniform", **UNIFORM_FDOT_TOLERANCES)
 
