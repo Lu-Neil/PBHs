@@ -1,0 +1,105 @@
+This is BibTeX, Version 0.99d (TeX Live 2023/Debian)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: main_editing.aux
+The style file: apsrev4-2-author-truncate.bst
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated wiz_functions (elt_size=4) to 6000 items from 3000.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Database file #1: main_editingNotes.bib
+Database file #2: zotero.bib
+Reallocated wiz_functions (elt_size=4) to 9000 items from 6000.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+apsrev4-2.bst 2019-01-14 (MD) hand-edited version of apsrev4-1.bst
+Control: key (0) 
+Control: author (72) initials jnrlst
+Control: editor formatted (1) identically to author
+Control: production of article title (-1) disabled
+Control: page (0) single
+Control: year (1) truncated
+Control: production of eprint (0) enabled
+Warning--empty author in Escriva:2019phb
+Warning--empty author in Carr:1993aq
+Warning--empty author in Kannike:2017bxn
+Warning--empty author in Crawford:1982yz
+Warning--empty author in Carr:2019hud
+Warning--empty author in Escriva:2022duf
+Warning--missing publisher in Escriva:2022duf
+Warning--empty author in Carr:2020xqk
+Warning--empty author in Carr:2023tpt
+Warning--empty author in Nakamura:1997sm
+Warning--empty author in Raidal:2018bbj
+Warning--empty author in Nishikawa:2017chy
+Warning--empty author in Lehmann:2022vdt
+Warning--empty author in Franciolini:2022ewd
+Warning--empty author in Kritos:2020wcl
+Warning--empty author in MACHO:1998qtf
+Warning--empty author in Wilkinson:2001vv
+Warning--empty author in LIGOScientific:2018glc
+Warning--empty author in LIGOScientific:2019kan
+Warning--empty author in LIGOScientific:2021job
+Warning--empty author in LVK:2022ydq
+Warning--empty author in Morras:2023jvb
+Warning--empty author in Miller:2021knj
+Warning--empty author in Smith:1987hh
+Warning--empty author in livasBroadbandSearchTechniques1989
+Warning--empty author in Jaranowski:1998qm
+Warning--empty author in Astone:2010ct
+Warning--empty author in Singhal:2019dfn
+Warning--empty author in greengardAcceleratingNonuniformFast2004
+Warning--empty author in wareFastApproximateFourier1998
+Warning--empty year in finufftFlatironinstituteFinufftNonuniform
+Warning--empty author in ouGNUFFTWAutoTuningHighPerformance2017
+Warning--empty author in 2019SJSC...41C.479B
+Warning--empty author in Faye:2012we
+Warning--empty author in Buonanno:2009zt
+Warning--empty author in Buonanno:2002fy
+Warning--empty author in Peters:1964zz
+Warning--empty author in DeLuca:2020bjf
+You've used 45 entries,
+            6102 wiz_defined-function locations,
+            1964 strings with 23017 characters,
+and the built_in function-call counts, 28889 in all, are:
+= -- 2883
+> -- 90
+< -- 79
++ -- 109
+- -- 2
+* -- 3375
+:= -- 2839
+add.period$ -- 45
+call.type$ -- 45
+change.case$ -- 188
+chr.to.int$ -- 44
+cite$ -- 171
+duplicate$ -- 2615
+empty$ -- 2364
+format.name$ -- 5
+if$ -- 6061
+int.to.chr$ -- 2
+int.to.str$ -- 53
+missing$ -- 399
+newline$ -- 187
+num.names$ -- 3
+pop$ -- 1332
+preamble$ -- 1
+purify$ -- 224
+quote$ -- 0
+skip$ -- 1628
+stack$ -- 0
+substring$ -- 1222
+swap$ -- 1964
+text.length$ -- 3
+text.prefix$ -- 0
+top$ -- 8
+type$ -- 496
+warning$ -- 38
+while$ -- 42
+width$ -- 0
+write$ -- 372
+(There were 38 warnings)

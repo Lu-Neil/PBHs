@@ -1,0 +1,248 @@
+After the coherent analysis described above, the data are represented by a
+collection of resampled spectra indexed by chunk time, by the coherent
+resampling parameter $\beta$, and by Fourier frequency in the resampled
+coordinate.  The purpose of the semicoherent stage is to combine these spectra
+along the frequency evolution of a putative signal.  For a trial set of
+long-timescale parameters $\theta$, the signal track predicts a frequency
+$f_i(\theta)$ in the $i$th coherent chunk.  The stack-slide statistic is the
+weighted sum of the coherent powers read from the corresponding bins,
+\begin{equation}
+    \Lambda(\theta)
+    =
+    \sum_{i\in{\cal I}(\theta)}
+    w_i\,P_i\!\left[f_i(\theta)\right] .
+    \label{eq:stack_slide_statistic}
+\end{equation}
+Here $P_i[f]$ denotes the coherent power in chunk $i$ at the nearest available
+frequency bin, ${\cal I}(\theta)$ is the set of chunks for which the trial
+track lies inside the analysis band, and $w_i$ denotes the semicoherent weight.
+In the estimates below we take $w_i$ to be uniform.  In a search on real data
+these weights should include gaps, detector noise, the NUFFT noise transfer
+function, and the covariance of the five-vector sideband estimator.
+
+The track parameters used for the current count estimate are
+\begin{equation}
+    \theta^a = \left(\ln M_c,\,t_{20}\right),
+    \label{eq:track_coordinates}
+\end{equation}
+where $t_{20}$ is the time at which the 3.5PN TaylorF2 track crosses
+$20\,{\rm Hz}$.  For a given chirp mass and crossing time, the track determines
+the expected carrier frequency in every coherent chunk.  The Fourier frequency
+axis produced by the NUFFT handles the carrier-frequency search within each
+chunk, so there is no additional semicoherent $f_0$ dimension in this
+parameterization.
+
+\subsubsection{Mismatch for a power stack}
+\label{sec:power_stack_mismatch}
+
+A template bank is needed because the true values of $M_c$ and $t_{20}$ are not
+known.  If a nearby template uses $\theta+\Delta\theta$ instead of $\theta$,
+the track will read power from slightly displaced Fourier bins.  The natural
+``mismatch'' for this stage is therefore not the coherent waveform mismatch,
+but the fractional loss in the expected stack-slide power.
+
+This is the main difference from the geometric placement formalism used in
+standard compact-binary matched filtering.  In the usual construction, as in
+the template-bank work of Brown et al. and the MANIFOLD work of Hanna et al.,
+the local metric is induced by the noise-weighted waveform overlap,
+\begin{equation}
+    \mu_{\rm coh}
+    =
+    1
+    -
+    \max_{t_c,\phi_c}
+    \left<
+        \hat h(\theta)
+        \middle|
+        \hat h(\theta+\Delta\theta)
+    \right> .
+    \label{eq:coherent_waveform_mismatch}
+\end{equation}
+Our semicoherent statistic has already discarded the relative phase between
+coherent chunks.  The geometry is therefore induced by a different map from
+parameters to observables: the map from $\theta$ to the expected sequence of
+coherent-bin powers along a track.  The two constructions are closely related
+because both are local quadratic expansions of a loss function, but the loss
+function is different.
+
+Let
+\begin{equation}
+    \Delta f_i
+    =
+    \frac{\partial f_i}{\partial\theta^a}\Delta\theta^a
+\end{equation}
+be the track-frequency error in chunk $i$.  The quantity that controls the
+power loss is this error in units of the local coherent bin width,
+\begin{equation}
+    d_i
+    =
+    \frac{\Delta f_i}{\Delta f_{{\rm bin},i}}
+    =
+    \frac{1}{\Delta f_{{\rm bin},i}}
+    \frac{\partial f_i}{\partial\theta^a}\Delta\theta^a .
+    \label{eq:semicoherent_bin_offset}
+\end{equation}
+For the coordinates in Eq.~\eqref{eq:track_coordinates},
+\begin{equation}
+    d_i
+    =
+    \frac{1}{\Delta f_{{\rm bin},i}}
+    \frac{\partial f_i}{\partial \ln M_c}\Delta\ln M_c
+    +
+    \frac{1}{\Delta f_{{\rm bin},i}}
+    \frac{\partial f_i}{\partial t_{20}}\Delta t_{20},
+    \label{eq:semicoherent_bin_offset_coordinates}
+\end{equation}
+with $\partial f_i/\partial t_{20}=-\dot f_i$.
+
+The coherent bin width is set by the duration of the chunk in the resampled
+coordinate, not exactly by $T_{\rm coh}$.  For a 0PN template with chirp
+parameter $\beta_i$ in chunk $i$,
+\begin{equation}
+    \Delta \tau_i
+    =
+    \frac{3}{5\beta_i}
+    \left[
+        1
+        -
+        \left(1-\frac{8}{3}\beta_i T_{\rm coh}\right)^{5/8}
+    \right],
+    \qquad
+    \Delta f_{{\rm bin},i} = \frac{1}{\Delta\tau_i}.
+    \label{eq:tau_bin_width}
+\end{equation}
+
+If a signal is offset from the nearest Fourier bin by $d$ bins, the recovered
+power is reduced by a bin-response function $B(d)$.  For a rectangular coherent
+window, $B(d)=\mathrm{sinc}^2(d)$.  Since the true signal frequency is not
+generally known relative to the nearest-bin center, we also consider the
+bin-averaged response
+\begin{equation}
+    B_{\rm avg}(d)
+    =
+    \int_{-1/2}^{1/2}
+    \mathrm{sinc}^2(x+d)\,dx .
+    \label{eq:bin_averaged_response}
+\end{equation}
+The expected retained stack-slide power is
+\begin{equation}
+    R(\theta,\Delta\theta)
+    =
+    \frac{
+        \sum_{i\in{\cal I}(\theta)}
+        w_i B(d_i)
+    }{
+        \sum_{i\in{\cal I}(\theta)}
+        w_i B(0)
+    },
+    \label{eq:stack_slide_retained_power}
+\end{equation}
+and the semicoherent mismatch is
+\begin{equation}
+    \mu_{\rm sc} = 1-R .
+    \label{eq:semicoherent_mismatch}
+\end{equation}
+
+\subsubsection{Semicoherent metric}
+\label{sec:semicoherent_metric}
+
+For small offsets, the bin response is locally quadratic,
+\begin{equation}
+    \frac{B(d)}{B(0)}
+    =
+    1-\kappa d^2 + {\cal O}(d^4).
+\end{equation}
+For the unaveraged rectangular-window response, $\kappa=\pi^2/3$.  For
+$B_{\rm avg}$, $\kappa$ is the curvature of
+$B_{\rm avg}(d)/B_{\rm avg}(0)$ at $d=0$.  Substitution into
+Eq.~\eqref{eq:stack_slide_retained_power} gives a local metric on the
+semicoherent track parameters,
+\begin{equation}
+    \mu_{\rm sc}
+    \simeq
+    g^{\rm sc}_{ab}\Delta\theta^a\Delta\theta^b,
+\end{equation}
+where
+\begin{equation}
+    g^{\rm sc}_{ab}
+    =
+    \kappa
+    \frac{
+        \sum_{i\in{\cal I}(\theta)}
+        w_i
+        \left[
+            \Delta f_{{\rm bin},i}^{-1}
+            \frac{\partial f_i}{\partial\theta^a}
+        \right]
+        \left[
+            \Delta f_{{\rm bin},i}^{-1}
+            \frac{\partial f_i}{\partial\theta^b}
+        \right]
+    }{
+        \sum_{i\in{\cal I}(\theta)} w_i
+    } .
+    \label{eq:semicoherent_metric_tensor}
+\end{equation}
+This metric is the power-stack analogue of the coherent mismatch metric.  It
+keeps the same geometric interpretation---nearby templates are close if their
+parameter offset has small metric norm---but the norm measures loss of
+stack-slide power rather than loss of coherent matched-filter SNR.
+
+In practice the derivatives $\partial f_i/\partial\ln M_c$ are evaluated by
+finite differences of TaylorF2 tracks, while
+$\partial f_i/\partial t_{20}=-\dot f_i$ is obtained from the same frequency
+evolution.  The sums in Eq.~\eqref{eq:semicoherent_metric_tensor} are evaluated
+at the actual coherent chunk centers that contribute to the track, rather than
+by a continuous time average.
+
+\subsubsection{Template-count estimate}
+\label{sec:semicoherent_count_estimate}
+
+The metric volume of the searched track space is
+\begin{equation}
+    V_{\rm sc}
+    =
+    \int_\Theta
+    \sqrt{\det g^{\rm sc}(\theta)}
+    \,d\ln M_c\,dt_{20}.
+    \label{eq:semicoherent_metric_volume}
+\end{equation}
+For each chirp mass, the allowed range of $t_{20}$ is
+\begin{equation}
+    -T_{\rm band}(M_c) \leq t_{20} \leq T_{\rm obs},
+    \label{eq:t20_range}
+\end{equation}
+where $T_{\rm band}(M_c)$ is the TaylorF2 time required to chirp across the
+analysis band.  This convention includes signals that crossed $20\,{\rm Hz}$
+before the start of the observation, provided that some part of the track lies
+inside the observed data.
+
+For a target maximum stack-slide mismatch $\mu_{\max}$, the metric volume can
+be converted into a template-count estimate by dividing by a covering cell
+area.  In two dimensions,
+\begin{equation}
+    A_{\rm square} = 2\mu_{\max},
+    \qquad
+    A_{\rm hex} = \frac{3\sqrt{3}}{2}\mu_{\max},
+\end{equation}
+for square and hexagonal coverings, respectively.  Thus
+\begin{equation}
+    N_{\rm square}\simeq\frac{V_{\rm sc}}{A_{\rm square}},
+    \qquad
+    N_{\rm hex}\simeq\frac{V_{\rm sc}}{A_{\rm hex}}.
+    \label{eq:semicoherent_template_counts}
+\end{equation}
+These counts are intended to set the order of magnitude of the stack-slide
+problem and to guide the computational-cost estimates.
+
+The calculation does not, by itself, produce a final search bank.  In
+particular, it does not implement the binary-tree placement, metric-reuse
+rules, metric-failure recovery, boundary padding, or edge-effect handling used
+in MANIFOLD-style production banks.  Those details are important for a search
+whose efficiency must be validated at the boundaries of the target parameter
+space.  The present metric should therefore be viewed as the statistic-specific
+ingredient needed by a bank generator, not as a complete bank generator.  A
+production bank could be built by adapting MANIFOLD to use
+Eq.~\eqref{eq:semicoherent_metric_tensor}, or by validating a PyCBC brute-force
+or stochastic bank directly against the retained-power criterion in
+Eq.~\eqref{eq:stack_slide_retained_power}.

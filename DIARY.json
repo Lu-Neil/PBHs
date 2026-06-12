@@ -10,7 +10,113 @@
         "Updated Resampling/Nov2025/PBH-5vec_error.py to plot recovered 5-vector power versus fractional bin offset and save the diagnostic figure at Resampling/Nov2025/demonstrating_behaviour/figs/pbh_5vec_bin_offset_power.png.",
         "Resolved the apparent 20% off-bin expectation mismatch: the bare resampler already matched the exact sampled NUDFT kernel, while the 5-vector tests needed the exact five-bin finite-sample NUDFT projection rather than a scalar carrier-loss model.",
         "Added _expected_5vec_bins in Resampling/Nov2025/fiveVec_resampler_utils.py and tightened uniform off-bin/gapped 5-vector test tolerances after comparing h, hp, hc, ratios, and detection statistic against that exact projection.",
-        "Verified the Nov2025 regression suite with conda run -n PBH pytest Resampling/Nov2025/test_suite -q; result was 28 passed."
+        "Verified the Nov2025 regression suite with conda run -n PBH pytest Resampling/Nov2025/test_suite -q; result was 28 passed.",
+        "Added CODEX.md guidance that CLI verification of plotting scripts should disable or guard blocking pl.show()/plt.show() calls.",
+        "Changed semicoherent_sensitivity.py to end sensitivity integrations at F_END using the 0PN chirp time to F_END, and guarded pl.show() for non-interactive CLI runs.",
+        "Noted the endpoint-convention fix: semicoherent sensitivity now integrates each f0 track only until it reaches F_END, so higher-f0 tracks are proper subsets of lower-f0 tracks.",
+        "Changed semicoherent chunk counting to use a single fixed chunk duration set by the highest f0 and heaviest Mc in the grid, then count chunks by track time to F_END divided by that duration."
+      ]
+    },
+    {
+      "date": "2026-06-01",
+      "notes": [
+        "Updated Resampling/paper_plots/distance_sensitivity/semicoherent_sensitivity.py to use 3.5PN TaylorT4 timing for fixed semicoherent chunk_duration and per-template track_duration; current grid reports the Galactic-center-reaching chirp-mass range as 0.000273842 - 0.1 Msun.",
+        "Added template-bank plotting scripts: dephasing_PN_and_deltaBeta.py for chunk-duration changes versus fractional beta error, and max_delta_beta_heatmap.py for the maximum positive DeltaBeta/beta giving less than pi radians endpoint dephasing after a 1 s chunk. The heatmap is over linear f0 and log Mc from 1e-4 to 1e-1 Msun.",
+        "Added Resampling/paper_plots/template_bank/testing_algorithm.py for a unit-amplitude TaylorF2 3.5PN semicoherent search test with Mc=1e-1, 1 s chunks, the paper_plots Resampler, and the heatmap-derived DeltaBeta/beta at the high-frequency band edge. The script currently analyzes only the 20-30 Hz sweep and writes figs/testing_algorithm.png.",
+        "testing_algorithm.py intentionally uses raw nearest-bin Resampler power without bin-response normalization. The exact-frequency diagnostic is scaled by the average bin-offset power loss 2.431/pi; the true-beta blue curve should follow sinc^2 bin scalloping, while the offset-beta red curve should be the same scalloping times the smooth wrong-beta phase-mismatch envelope."
+      ]
+    },
+    {
+      "date": "2026-06-03",
+      "notes": [
+        "Reworked Resampling/paper_plots/template_bank/template_bank_section.md into a paper-style Template Bank section: semicoherent setup first, coherent 0PN chunk analysis, beta-grid placement, joint 0PN/beta phase residuals, 3.5PN stack-slide tracks, t20/Mc grid placement, and the final CPU-cost model.",
+        "Clarified that the stack-slide templates are 3.5PN frequency tracks parameterized by chirp mass and t20; the 20-64 Hz band defines the in-band portion of each track and should not be counted as an independent f0 template dimension once t20 is fixed.",
+        "Adopted the fiducial parameter-space discussion Mc=5e-4--1e-1 Msun, f=20--64 Hz, T_obs=1 yr, eta=1/4, with coherent cost C_coh proportional to t log t * T_obs/t * N_beta and stack-slide cost C_stack proportional to N_Mc * N_t20 * T_obs/t.",
+        "Explored why extremely fine t20 grids are not needed when sub-chunk timing offsets are absorbed by coherent frequency-bin edge losses, and reverted the minimal t20 spacing assumption in favor of a coarser metric/binned-track interpretation.",
+        "Estimated stack-slide GPU costs for RTX 3070 and A100-style hardware, noting that the expensive step is mostly track-frequency generation and indexed accumulation from a preloaded time-frequency map rather than host-device transfer if the map remains resident on the GPU.",
+        "Made major edits to Resampling/paper_plots/tex/main_editing.tex Methods: introduced the semicoherent search at high level, moved coherent chunk analysis into its own subsection, put resampling first, moved resampling computational performance to the appendix, added chunk-size and beta-dephasing/covariance discussion, and added semicoherent 3.5PN track placement plus computational cost and RAM discussion.",
+        "Added a note that the memory map can be split along time so submaps fit on a GPU; most short-lived tracks are contained within one submap, while a small number of long-lived tracks must be accumulated across submaps.",
+        "Compiled the REVTeX manuscript locally using the bundled revtex files and the added apsrev4-2 bibliography style; the PDF builds with known nonfatal warnings from draft/missing figures, overfull boxes, and incomplete bibliography author fields.",
+        "Added Resampling/paper_plots/resampling/coherence_model_comparison.py to compare monochromatic, first-order Taylor-frequency, and 0PN coherent models against a 3.5PN TaylorT4 truth for f0=64 Hz and Mc=0.1 Msun.",
+        "The coherence comparison supports the expected ordering: |Delta phi|=pi/2 occurs at about 3.10 s for monochromatic, 21.1 s for linear-frequency Taylor, and 33.5 s for 0PN; the corresponding pi crossings are about 4.38 s, 26.6 s, and 46.6 s."
+      ]
+    },
+    {
+      "date": "2026-06-05",
+      "notes": [
+        "Replaced Resampling/paper_plots/template_bank/semicoherent_pbh_bank.py with a TaylorF2-based semicoherent bank generator over Mc=5e-4--1e-1 Msun and in-band chunk frequencies 20--64 Hz for 30 s coherent chunks.",
+        "The bank generator now uses lalsimulation SimInspiralTaylorF2AlignedPhasing with PNPhaseDerivative to build t(f), invert to f(t), finite-difference df/dlogMc, and set Mc spacing from a maximum instantaneous frequency-error budget.",
+        "Changed the default frequency-error budget to 1/T_coh = 1/30 Hz and regenerated the default Mc bank artifacts; the one-dimensional Mc grid has 203 templates when the full budget is used for Mc spacing.",
+        "Extended semicoherent_pbh_bank.py to include t20, the reference crossing time at 20 Hz. For each Mc template it computes the 20--64 Hz TaylorF2 duration, max df/dt, t20 spacing, t20 range, and per-Mc t20 template count without materializing the full track list.",
+        "For the default one-year, 20--64 Hz, 30 s setup, the separable rectangular Mc/t20 bank originally gave 577,616,559 total (Mc,t20) tracks with t20 spacing from about 1.28 s to 8709 s.",
+        "Added a 2D (log Mc, t20) metric estimate to semicoherent_pbh_bank.py using g_ab=<partial_a f partial_b f>/Delta f_max^2, with partial_t20 f=-df/dt and partial_logMc f from centered TaylorF2 finite differences. The script writes figs/semicoherent_pbh_2d_metric.csv and stores the metric arrays/count estimates in the NPZ.",
+        "The default 2D metric scan found a strong off-diagonal correlation of about -0.995 between log Mc and t20 and a hexagonal-covering count estimate of about 6.81e8 templates for Delta f_max=1/30 Hz.",
+        "Temporarily modified the rectangular bank to allocate DEFAULT_FREQ_ERROR_HZ/2 to each independent axis for a fair combined-error comparison. This raised the rectangular count to 2.2799873e9 tracks, making the 2D hex metric estimate about 3.35 times smaller. The user then asked to undo this change; the undo was not completed because the turn was interrupted.",
+        "Benchmarked TaylorF2 track generation versus stack-slide accumulation: building one TaylorF2 interpolator for a fixed Mc took about 1.2--1.5 ms, evaluating a full one-year frequency track took about 20 ms when all chunks are in band, and indexed summing 1,051,920 Fourier powers took about 19 ms on this machine.",
+        "Ran a 40--60 Hz bank-count variant. With the same one-year, 30 s, 1/30 Hz setup it gave 163 Mc templates and 366,779,452 total rectangular (Mc,t20) tracks, about a 36.5% reduction relative to the 20--64 Hz rectangular count.",
+        "Discussed SNR-retention-based mismatch: for 95% SNR retained under a simple sinc bin-response model, the equivalent constant offset is 0.1756787 bins or 0.00585596 Hz for 30 s chunks. Running the generator with that combined frequency budget gave a 2D hex metric estimate of about 2.21e10 templates for the full default parameter space.",
+        "Rewrote the Crossing-time spacing and Chirp-mass spacing subsections in Resampling/paper_plots/tex/main_editing.tex to describe the actual TaylorF2 template-bank construction: t(f) from dPsi/df, df/dt from d2Psi/df2, t20 spacing from max df/dt, and Mc spacing from finite-differenced TaylorF2 tracks.",
+        "Compiled main_editing.tex with TEXINPUTS=.:./revtex//: latexmk -pdf -interaction=nonstopmode -halt-on-error main_editing.tex. The manuscript builds; remaining warnings are from known missing draft figures, bibliography metadata, and pre-existing overfull boxes."
+      ]
+    },
+    {
+      "date": "2026-06-08",
+      "notes": [
+        "Reviewed Resampling/paper_plots/distance_sensitivity/maximum_sensitivity.py and confirmed base_integral_antiderivative evaluates the precomputed frequency-domain cumulative integral at off-grid frequencies using the quadratic antiderivative of a piecewise-linear base_integrand.",
+        "Compared maximum_sensitivity.py with semicoherent_sensitivity.py while ignoring semicoherent chunk penalties: the beta, ASD-integral, integrated_chirp_power, and distance_sensitivity formulas are equivalent for the same T, f0, Mc, ASD table, and lambda threshold.",
+        "Noted that the two sensitivity scripts currently feed different tracks into the same formula: maximum_sensitivity.py integrates from 20--200 Hz starts until F_MAX=2000 Hz or MAX_OBS_TIME, while semicoherent_sensitivity.py uses 40--60 Hz starts and integrates only to F_END=60 Hz.",
+        "Traced semicoherent_chunk_count_grid and found that the current call passes chunk_duration=30.0, so the dephasing-derived chunk-duration machinery is bypassed; the plotted chunk counts are just ceil(TaylorT4 track duration to F_END / 30 s).",
+        "Identified a consistency issue in semicoherent_sensitivity.py: sensitivity is integrated over the 0PN time_to_frequency duration, but chunk_count_grid uses 3.5PN TaylorT4 durations. On the current 49x51 grid, TaylorT4 durations are about 1.00009--1.0077 times the 0PN durations and the ceiling changes many chunk counts.",
+        "Suggested simplifying fixed-duration semicoherent chunk counting to np.maximum(1, np.ceil(tMax_grid / fixed_chunk_duration).astype(np.int64)) if the intended penalty should apply to the same 0PN interval used by the sensitivity integral; in that case most TaylorT4 dephasing/chunk endpoint helpers can be removed from semicoherent_sensitivity.py."
+      ]
+    },
+    {
+      "date": "2026-06-09",
+      "notes": [
+        "Updated Resampling/paper_plots/distance_sensitivity/maximum_sensitivity.py to use exact LAL constants lal.C_SI, lal.G_SI, lal.MSUN_SI, and lal.PC_SI, matching the TaylorF2 3.5PN sensitivity script normalization.",
+        "Added Resampling/paper_plots/distance_sensitivity/maximum_sensitivity_35PN.py, which uses lalsimulation TaylorF2 3.5PN t(f) maps to set the time-to-F_MAX endpoint and evaluate the frequency-evolution factor inside the distance-sensitivity integral.",
+        "Fixed the TaylorF2 3.5PN sensitivity integral endpoint evaluation so low-mass, small-frequency-drift cases do not get spurious percent-level errors from linear interpolation of the cumulative integral.",
+        "Quantified the fair LAL-normalized comparison between maximum_sensitivity.py and maximum_sensitivity_35PN.py: D_35PN/D_0PN ranges from about 0.9907 to 1.0104 on the f0=20--200 Hz, Mc=1e-5--1 Msun grid, with median about 1.0010.",
+        "Added Resampling/paper_plots/distance_sensitivity/pn_terms_distance_sensitivity.md deriving why post-0PN terms have little impact on distance sensitivity: PN corrections enter as a W0(f)-weighted average inside I, high-frequency PN corrections are suppressed by W0(f) proportional to 1/[f^(7/3) S_n(f)], and distance responds only as sqrt(I).",
+        "Simplified Resampling/paper_plots/distance_sensitivity/semicoherent_sensitivity.py to use the 0PN signal model and 0PN signal duration for fixed 30 s semicoherent chunk counts, removing the TaylorT4/dephasing machinery that previously computed chunk duration or TaylorT4 track duration.",
+        "Changed semicoherent_sensitivity.py so the sensitivity power and chunk penalty are computed only over the F_START--F_END band by setting tMax_grid from time_to_frequency(fgrid, F_END, betaGrid), not from an F_MAX endpoint.",
+        "Changed maximum_sensitivity.py and semicoherent_sensitivity.py to use fixed discrete contour/color boundaries with contourf(..., levels=range(1, 10)) rather than manually setting colorbar ticks; semicoherent_sensitivity may intentionally leave some color intervals unused.",
+        "Extended Resampling/paper_plots/template_bank/semicoherent_pbh_bank.py with lookup-count accounting for the stack-slide stage: one time-frequency grid lookup per 30 s chunk center whose time lies in [t20, t20 + duration_20_to_fmax], without materializing the full billion-template bank.",
+        "For the default one-year, 20--64 Hz, 30 s bank, the lookup summary gives 1.181472855e9 templates, 1,051,920 time chunks, 7.59409508292e11 total grid-entry lookups, 7.58228036597e11 summation additions, and a mean of about 642.8 lookups per template. The per-Mc output is written to template_bank/figs/semicoherent_pbh_lookup_cost.csv and included in semicoherent_pbh_mchirp_bank.npz.",
+        "Benchmarked lookup+sum on this machine using a full synthetic float32 time-frequency grid and NumPy np.take plus sum(axis=1). The single-process/vectorized CPU throughput is about 60.1 million entries/s near the bank-wide mean N=643, implying about 3.5 hours for the full default bank; row-weighting by measured N gives about 3.8 hours. This excludes track/index generation and I/O.",
+        "Estimated RAM for a one-year, 30 s chunk, df=1/30 Hz time-frequency grid over 40--120 Hz: 1,051,920 time chunks by 2,401 frequency bins = 2.52565992e9 entries, requiring about 9.41 GiB for float32 power, 18.82 GiB for float64 or complex64, and 37.63 GiB for complex128.",
+        "Reviewed Resampling/paper_plots/template_bank/semicoherent_pbh_bank.py: it builds TaylorF2 t(f) and df/dt tracks with lalsimulation, scans finite-differenced df/dlogMc over chunk start frequency and elapsed time, constructs a semicoherent Mc/t20 bank, writes CSV/NPZ diagnostics, and plots derivative/spacing summaries.",
+        "Optimized semicoherent_pbh_bank.py so TaylorF2FrequencyTrack computes t(f) and df/dt in one LAL phasing pass, and added a combined scan_max_dfdlogm_and_metric_summary path that reuses finite-difference low/high-Mc tracks for both the max-dfdlogMc scan and the 2D metric summary.",
+        "Changed semicoherent_pbh_bank.py argparse wording so --t-coh is treated as a configurable coherent chunk duration rather than hard-coding 30 s in the CLI description.",
+        "Replaced the failed pointwise adaptive Mc stepping rule with an integral of the local template density max|df/dlogMc|/[2*axis_error] over log Mc; the default 20--64 Hz, Mc=5e-4--1e-1 Msun run now gives 48 Mc templates, with max local Mc edge error about 0.01635 Hz against the 0.01667 Hz per-axis budget.",
+        "Modified t20_summary to avoid using one max df/dt over the entire t20 range: it keeps max-rate spacing for the full-observation part, integrates the local df/dt density over the in-band track tail, records t20_spacing_min_s/t20_spacing_max_s/mean_dfdt_hz_per_s, and removes a stray breakpoint() that would stop generation.",
+        "Verified over 96 masses that TaylorF2FrequencyTrack.dfdt_grid is monotonic increasing across 20--64 Hz for the fiducial Mc range, so max_dfdt occurs at f_max/latest in-band time; also verified max_dfdlogm_by_mchirp is monotonic over the default scan and peaks at Mc=0.1 Msun.",
+        "Benchmarked TaylorF2FrequencyTrack construction with n_taylorf2_grid=2048: about 0.0024 s per track on this machine, or roughly 6.7e2 CPU hours for 1e9 track constructions.",
+        "Checked LALSuite TaylorF2 APIs: SimInspiralTaylorF2 generates a complex frequency-domain waveform, not a direct time-frequency track, so PNPhaseDerivative/PNPhaseSecondDerivative from SimInspiralTaylorF2AlignedPhasing remains the appropriate route for t(f)=dPsi/df/(2pi) and df/dt.",
+        "Compared the semicoherent bank placement idea with PhysRevD.87.082004: their method uses a noise-weighted waveform-overlap metric and fitting-factor validation, whereas the existing bank used worst-case frequency-bin motion; the analogous method for this project is a semicoherent track metric based on averaged coherent-bin power loss.",
+        "Added Resampling/paper_plots/template_bank/geometric_metric.py to estimate a geometric semicoherent template count for theta=(log Mc,t20) using the small-offset curvature of sinc^2 or bin-averaged-sinc^2 coherent-bin response, integrating sqrt(det g) over the visible TaylorF2 track manifold.",
+        "Ran geometric_metric.py for the default fiducial setup with max_mismatch=0.03, bin_width=1/30 Hz, and bin-averaged-sinc2 response: metric volume 3.675135e9, square count estimate 6.125224e10, and hex/A2 count estimate 4.715200e10; outputs are geometric_metric_summary.csv/npz."
+      ]
+    },
+    {
+      "date": "2026-06-10",
+      "notes": [
+        "Clarified how PhysRevD.87.082004's coherent waveform-overlap mismatch criterion relates to the current search: it is not directly applicable after forming a semicoherent time-frequency grid and summing powers along tracks; the appropriate analogue is a stack-slide retained-power loss based on coherent-bin offsets.",
+        "Updated Resampling/paper_plots/template_bank/geometric_metric.py so the semicoherent metric samples actual coherent chunk centers, converts track-frequency errors to bin units with per-chunk 0PN tau bin widths 1/tau_0PN(T_coh,beta), and averages with the same stack-slide weight hook used by the detection-statistic model.",
+        "Added stack_slide_retained_power(...) to geometric_metric.py as a finite-offset validation helper using the same sinc2 or bin-averaged-sinc2 coherent-bin response as the quadratic metric.",
+        "Refactored geometric_metric.py for readability: introduced a StackSamples dataclass, centralized finite sample collection in collect_stack_samples(...), removed duplicated masking/bin-width/weight logic, removed unused CLI knobs, and made bin_averaged_sinc2 evaluate in bounded chunks to avoid large temporary arrays for long tracks.",
+        "Verified geometric_metric.py with conda run -n PBH python -m py_compile, a reduced end-to-end CLI run writing to /tmp/geometric_metric_check, and a small-offset check where stack_slide_retained_power and the quadratic metric both returned 0.999999999998."
+      ]
+    },
+    {
+      "date": "2026-06-12",
+      "notes": [
+        "Compared the 2D metric implementations in Resampling/paper_plots/template_bank/geometric_metric.py and semicoherent_pbh_bank.py. The geometric metric is the correct retained-power mismatch model because it samples the actual visible coherent chunk centers for each (Mc,t20), converts derivatives to coherent-bin units using per-chunk 1/tau_0PN(T_coh,beta) bin widths, and includes the coherent-bin response curvature.",
+        "Identified semicoherent_pbh_bank.py's 2D metric as an older rough RMS frequency-error diagnostic rather than the same metric: it samples uniformly over the full TaylorF2 track independent of t20, normalizes by the fixed config.freq_error_hz instead of per-chunk bin width, and omits the sinc/bin-averaged response curvature.",
+        "Validated the conclusion with a /tmp scratch comparison: for Mc=1e-2 and t20=Tobs/4, geometric_metric.py predicted finite-offset stack-slide mismatches from stack_slide_retained_power closely, while semicoherent_pbh_bank.py underpredicted them by about a factor of 3.5 for representative logMc and t20 offsets.",
+        "Explained the interpretation of <delta_bin_i^2>: its square root is the RMS coherent-bin offset along the track. For max_mismatch=0.03, the target RMS offset is only about 0.095 bins for sinc2 or 0.12 bins for bin-averaged-sinc2; half-bin RMS offsets are already large and outside the reliable quadratic metric regime.",
+        "Discussed possible vectorization of the stack-slide search. There is no direct one-shot IFFT analogue over the full (Mc,t20) bank because Mc changes the track shape, but for fixed Mc the t20 coordinate is a translation and can be accelerated with chunked NumPy indexed gathers, sparse time-convolutions grouped by frequency bin, batched lookup tensors, or GPU gather/reduction.",
+        "Updated CODEX.md operating notes to read the last 5 repository-root DIARY.json entries at session start, add diary notes only after substantive file changes, and choose Nov2025 versus paper_plots as the default edit target based on task ownership."
       ]
     }
   ]

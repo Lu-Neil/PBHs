@@ -16,21 +16,26 @@
 from pathlib import Path
 
 import matplotlib as mpl
+mpl.use("Agg")
 from matplotlib.lines import Line2D
 import numpy as np
 import matplotlib.pyplot as pl
 from scipy import interpolate, integrate
 
+import lal
+
 # %%
-C = 3e8
-G = 6.67e-11
+C = lal.C_SI
+G = lal.G_SI
 PI = np.pi
-SOLAR_MASS_KG = 2e30
-PARSEC_M = 3e16
+SOLAR_MASS_KG = lal.MSUN_SI
+PARSEC_M = lal.PC_SI
 MAX_OBS_TIME = 3e7
 LAMBDA_THRESHOLD = 34
 GALACTIC_CENTER_PC = 8000
+ANDROMEDA_PC = 7.65e5
 CHIRP_CONST = 96 / 5 * PI**(8 / 3) * (G / C**3)**(5 / 3)
+F_MAX = 2000
 
 # %%
 SCRIPT_DIR = Path(__file__).resolve().parent if "__file__" in globals() else Path.cwd()
@@ -64,8 +69,7 @@ Mspace = np.logspace(-5, 0, 49)
 fgrid, Mgrid = np.meshgrid(fspace, Mspace)
 
 betaGrid = beta_calc(fgrid, Mgrid)
-tMax_grid = np.minimum(0.37 / betaGrid, MAX_OBS_TIME)
-
+tMax_grid = np.minimum(0.375 / betaGrid * (1 - (fgrid/F_MAX)**(8/3)), MAX_OBS_TIME)
 final_f = f_calc(tMax_grid, fgrid, Mgrid, betaGrid)
 
 
@@ -113,13 +117,6 @@ def distance_sensitivity(T, f0, Mc, l=47):
     temp1 = 3 * C * beta / f0**2
     return temp0 * temp1 * np.sqrt(integration)
 
-
-# %%
-0.375/beta_calc(20, 0.3)
-
-# %%
-distance_sensitivity(1200, 20, 0.353)/3e16/1e6
-
 # %%
 sens_grid = distance_sensitivity(tMax_grid, fgrid, Mgrid, l=LAMBDA_THRESHOLD) / PARSEC_M
 
@@ -127,46 +124,21 @@ sens_grid = distance_sensitivity(tMax_grid, fgrid, Mgrid, l=LAMBDA_THRESHOLD) / 
 fig, ax = pl.subplots()
 log_Mspace = np.log10(Mspace)
 log_sens_grid = np.log10(sens_grid)
-contour = ax.contourf(fspace, log_Mspace, log_sens_grid)
-fig.colorbar(contour, ax=ax)
+contour = ax.contourf(fspace, log_Mspace, log_sens_grid, levels=range(1, 10))
+fig.colorbar(contour, ax=ax, label='log(Distance Sensitivity / pc)')
 ax.contour(
     fspace,
     log_Mspace,
     log_sens_grid,
-    [np.log10(GALACTIC_CENTER_PC)],
-    colors='red',
+    [np.log10(GALACTIC_CENTER_PC), np.log10(ANDROMEDA_PC)],
+    colors=['red', 'darkorange'],
     linestyles='--',
 )
-ax.set_title(r'log(Distance Sensitivity / pc)')
+ax.set_title(r'Maximum distance sensitivity')
 ax.set_xlabel("Initial frequency (Hz)")
 ax.set_ylabel(r'$log(M_c/M_\odot$)')
 
-line = Line2D([0], [0], label='Galactic center', color='r', ls='--')
-ax.legend(handles=[line])
-pl.show()
-fig.savefig(FIG_DIR / "distance_sensitivity.png", bbox_inches="tight")
-
-
-# # %%
-# def h0_calc(d, f, M):
-#     m_corr = M*2e30
-#     temp0 = 4/d
-#     temp1 = (G*m_corr/(c**2))**(5/3)
-#     temp2 = (pi*f/c)**(2/3)
-#     return temp0 * temp1 * temp2
-
-
-# # %%
-# def d_calc(h0, f, M):
-#     m_corr = M*2e30
-#     temp0 = 4/h0
-#     temp1 = (G*m_corr/(c**2))**(5/3)
-#     temp2 = (pi*f/c)**(2/3)
-#     return temp0 * temp1 * temp2
-
-
-# # %%
-# temp_dist = sens_grid[0,0] * 3e16
-# h0_calc(temp_dist, fspace[0], Mspace[0])
-
-# %%
+line0 = Line2D([0], [0], label='Galactic center', color='r', ls='--')
+line1 = Line2D([0], [0], label='Andromeda', color='darkorange', ls='--')
+ax.legend(handles=[line0, line1])
+fig.savefig(FIG_DIR / "maximum_distance_sensitivity.png", bbox_inches="tight")
