@@ -1,0 +1,39 @@
+{
+  "created_at": "2026-06-14T10:04:01.663215+00:00",
+  "idea": "/home/neil-lu/Dropbox/PBHs/Codebase/Resampling/paper_plots/R&D/idea.md",
+  "agents": "/home/neil-lu/Dropbox/PBHs/Codebase/Resampling/paper_plots/R&D/agents.yml",
+  "out": "/home/neil-lu/Dropbox/PBHs/Codebase/Resampling/paper_plots/R&D/runs/iter_001",
+  "previous_report": "/home/neil-lu/Dropbox/PBHs/Codebase/Resampling/paper_plots/R&D/runs/iter_000/report.md",
+  "feedback": "/home/neil-lu/Dropbox/PBHs/Codebase/Resampling/paper_plots/R&D/feedback/iter_001_comments.md",
+  "iteration_mode": true,
+  "agent_order": [
+    "planner",
+    "literature",
+    "theory_and_optimization",
+    "referee"
+  ],
+  "outputs": {
+    "planner": "/home/neil-lu/Dropbox/PBHs/Codebase/Resampling/paper_plots/R&D/runs/iter_001/00_research_plan.md",
+    "literature": "/home/neil-lu/Dropbox/PBHs/Codebase/Resampling/paper_plots/R&D/runs/iter_001/01_literature_review.md",
+    "theory_and_optimization": "/home/neil-lu/Dropbox/PBHs/Codebase/Resampling/paper_plots/R&D/runs/iter_001/02_theory_and_optimization.md",
+    "referee": "/home/neil-lu/Dropbox/PBHs/Codebase/Resampling/paper_plots/R&D/runs/iter_001/03_referee_report.md"
+  },
+  "plans": {
+    "planner:attempt:1": "/home/neil-lu/Dropbox/PBHs/Codebase/Resampling/paper_plots/R&D/runs/iter_001/_plans/planner_attempt_1_plan.md",
+    "planner:attempt:2": "/home/neil-lu/Dropbox/PBHs/Codebase/Resampling/paper_plots/R&D/runs/iter_001/_plans/planner_attempt_2_plan.md",
+    "literature:attempt:1": "/home/neil-lu/Dropbox/PBHs/Codebase/Resampling/paper_plots/R&D/runs/iter_001/_plans/literature_attempt_1_plan.md",
+    "literature:attempt:2": "/home/neil-lu/Dropbox/PBHs/Codebase/Resampling/paper_plots/R&D/runs/iter_001/_plans/literature_attempt_2_plan.md",
+    "theory_and_optimization:attempt:1": "/home/neil-lu/Dropbox/PBHs/Codebase/Resampling/paper_plots/R&D/runs/iter_001/_plans/theory_and_optimization_attempt_1_plan.md",
+    "theory_and_optimization:attempt:2": "/home/neil-lu/Dropbox/PBHs/Codebase/Resampling/paper_plots/R&D/runs/iter_001/_plans/theory_and_optimization_attempt_2_plan.md",
+    "referee:attempt:1": "/home/neil-lu/Dropbox/PBHs/Codebase/Resampling/paper_plots/R&D/runs/iter_001/_plans/referee_attempt_1_plan.md",
+    "referee:attempt:2": "/home/neil-lu/Dropbox/PBHs/Codebase/Resampling/paper_plots/R&D/runs/iter_001/_plans/referee_attempt_2_plan.md"
+  },
+  "attempts": {
+    "planner": 2,
+    "literature": 2,
+    "theory_and_optimization": 2,
+    "referee": 2
+  },
+  "validation_mode": "checklist",
+  "report_mode": "synthesized"
+}

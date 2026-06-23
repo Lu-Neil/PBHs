@@ -14,13 +14,14 @@
 
 # %%
 from pathlib import Path
-
 import matplotlib as mpl
-mpl.use("Agg")
 from matplotlib.lines import Line2D
 import numpy as np
 import matplotlib.pyplot as pl
 from scipy import interpolate, integrate
+
+mpl.use("Agg")
+pl.style.use("../paper.mplstyle")
 
 # %%
 C = 3e8
@@ -34,7 +35,7 @@ ANDROMEDA_PC = 7.65e5
 CHIRP_CONST = 96 / 5 * PI**(8 / 3) * (G / C**3)**(5 / 3)
 
 F_START = 40
-F_END = 60
+F_END = 120
 MAX_OBS_TIME = 3e7
 CHUNK_DURATION = 30.0
 LOG_M_LOWER = -5
@@ -157,9 +158,9 @@ def distance_sensitivity(T, f0, Mc, l=47):
 
 # %%
 chunk_count_grid = semicoherent_chunk_count_grid(tMax_grid)
-sens_grid = distance_sensitivity(tMax_grid, fgrid, Mgrid, l=LAMBDA_THRESHOLD) / PARSEC_M
-sens_grid = apply_semicoherent_chunk_penalty(sens_grid, chunk_count_grid)
-galactic_center_reachable = np.any(sens_grid >= GALACTIC_CENTER_PC, axis=1)
+max_sens_grid = distance_sensitivity(tMax_grid, fgrid, Mgrid, l=LAMBDA_THRESHOLD) / PARSEC_M
+semicoherent_sens_grid = apply_semicoherent_chunk_penalty(max_sens_grid, chunk_count_grid)
+galactic_center_reachable = np.any(semicoherent_sens_grid >= GALACTIC_CENTER_PC, axis=1)
 if np.any(galactic_center_reachable):
     reachable_masses = Mspace[galactic_center_reachable]
     print(
@@ -170,28 +171,36 @@ else:
     print("No Mc values reach the Galactic center for any f0.")
 
 # %%
-fig, ax = pl.subplots()
+fig, axes = pl.subplots(1, 2, figsize=(12, 4.8), sharey=True, constrained_layout=True)
 log_Mspace = np.log10(Mspace)
-log_sens_grid = np.log10(sens_grid)
-contour = ax.contourf(fspace, log_Mspace, log_sens_grid, levels=range(1, 10))
-fig.colorbar(contour, ax=ax, label=r'log(Distance Sensitivity / pc)')
+plot_grids = [
+    (max_sens_grid, "Coherent distance sensitivity"),
+    (semicoherent_sens_grid, "Semicoherent distance sensitivity"),
+]
 
-ax.contour(
-    fspace,
-    log_Mspace,
-    log_sens_grid,
-    [np.log10(GALACTIC_CENTER_PC), np.log10(ANDROMEDA_PC)],
-    colors=['red', 'darkorange'],
-    linestyles='--',
-)
-ax.set_title(f'Semicoherent sensitivity, f={F_START}-{F_END} Hz')
-ax.set_xlabel("Initial frequency (Hz)")
-ax.set_ylabel(r'$log(M_c/M_\odot$)')
+contour = None
+for ax, (sens_grid, title) in zip(axes, plot_grids):
+    log_sens_grid = np.log10(sens_grid)
+    contour = ax.contourf(fspace, log_Mspace, log_sens_grid, levels=range(1, 9))
+    ax.contour(
+        fspace,
+        log_Mspace,
+        log_sens_grid,
+        [np.log10(GALACTIC_CENTER_PC), np.log10(ANDROMEDA_PC)],
+        colors=['red', 'darkorange'],
+        linestyles='--',
+    )
+    ax.set_title(title)
+    ax.set_xlabel("Initial frequency (Hz)")
+
+axes[0].set_ylabel(r'$log(M_c/M_\odot$)')
+fig.colorbar(contour, ax=axes, label=r'log(Distance Sensitivity / pc)')
 
 line0 = Line2D([0], [0], label='Galactic center', color='r', ls='--')
 line1 = Line2D([0], [0], label='Andromeda', color='darkorange', ls='--')
-ax.legend(handles=[line0, line1])
-fig.savefig(FIG_DIR / f"semicoherent_sensitivity_f={F_START}-{F_END}.png", bbox_inches="tight")
+axes[0].legend(handles=[line0, line1])
+# fig.suptitle(f'Distance sensitivity, f={F_START}-{F_END} Hz')
+fig.savefig(FIG_DIR / f"distance_sensitivity_f={F_START}-{F_END}.png", bbox_inches="tight")
 
 
 # # %%

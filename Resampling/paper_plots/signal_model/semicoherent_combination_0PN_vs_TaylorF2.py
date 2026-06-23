@@ -1,4 +1,7 @@
 import numpy as np
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 from scipy.optimize import brentq
@@ -204,7 +207,6 @@ def main():
     ax.grid(True, which="both", alpha=0.3)
     ax.legend(loc="best")
     plt.tight_layout()
-    plt.show()
 
 if __name__ == "__main__":
     main()

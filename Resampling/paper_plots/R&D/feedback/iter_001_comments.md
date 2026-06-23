@@ -1,0 +1,6 @@
+- I agree that semicoherent methods are not new, I want to understand if there are better ways to build semicoherent combinations than just depending frequency-time spectra (or adding one extra dimension). The key question is: How should I choose how many dimensions I should have in the coherent chunk analysis? 
+- I am not trying to be as optimal as matched filtering, I am trying to find a better tradeoff of sensitivity vs computing cost. For 
+- Run reduced-basis, SVD/PCA analysis on equal mass-ratio, non-spinning 3.5PN waveforms. How different are the optimal bases from the 0PN waveform?
+- Can this be done analytically? Given functional forms of a waveform find optimal analytical lower dimensional expressions. I feel like this is what the physically motivated 0PN is. I would therefore be a bit surprised if there were better expansions than 0PN that only use one parameter. 
+- What happens if we allow for the waveforms to be spinning up to chi=0.2?
+- The final report should have sections on the generic signal processing question of how to determine the number of parameters in $\zeta$, the effect on computing cost and sensitivity. It should also consider the 2 cases of 3.5PN GW waveforms: equal-mass non-spinning, equal-mass spinning

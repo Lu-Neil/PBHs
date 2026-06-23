@@ -1,0 +1,223 @@
+global_rules:
+  - Treat idea.md as the source of truth.
+  - Distinguish established results from conjectures.
+  - Do not invent citations.
+  - Mark uncertain claims explicitly.
+  - Every output must be written as an auditable artifact.
+  - Each retry must address concrete validator or critic feedback.
+  - Stop retrying after max_attempts.
+  - Run scripts with `conda run -n PBH python ...`
+
+pipeline:
+  order:
+    - planner
+    - literature
+    - theory_and_optimization
+    - referee
+
+ralph_loop_defaults:
+  enabled: true
+  min_attempts: 2
+  max_attempts: 3
+  fresh_context_each_attempt: true
+  preserve_between_attempts:
+    - idea.md
+    - previous_output
+    - validator_feedback
+    - critic_feedback
+  stop_conditions:
+    - validator_passed_after_min_attempts
+    - max_attempts_reached
+  on_failure:
+    write_failure_report: true
+
+planning_pass_defaults:
+  enabled: true
+  instructions:
+    - Identify the artifact's core claims, derivations, or literature questions before drafting.
+    - List assumptions, likely failure modes, and checks that would catch shallow reasoning.
+    - Outline the artifact structure and note which sections need the most technical depth.
+    - On refinement attempts, identify concrete improvements to the existing output.
+
+agents:
+
+  planner:
+    purpose: >
+      Turn idea.md into a concrete research plan.
+    output: outputs/00_research_plan.md
+    ralph_loop:
+      enabled: true
+      min_attempts: 2
+      max_attempts: 2
+      validators:
+        - outputs all required sections
+        - identifies the central optimization problem
+        - separates literature, theory, simulation, and cost tasks
+    must_include:
+      - central research question
+      - subquestions
+      - required derivations
+      - required literature searches
+      - required simulations
+      - likely bottlenecks
+      - proposed report structure
+
+  literature:
+    purpose: >
+      Find related work and determine whether this problem has already been
+      studied under another name.
+    output: outputs/01_literature_review.md
+    secondary_output: outputs/papers_to_add_to_zotero.md
+    can_call:
+      - paper_analyzer
+    call_when:
+      - a specific paper, preprint, DOI, arXiv ID, PDF, or citation is provided
+      - the literature review needs detailed evidence from a paper rather than a citation-level summary
+      - another agent needs paper-specific claims, equations, assumptions, limitations, or comparison points
+    ralph_loop:
+      enabled: true
+      min_attempts: 2
+      max_attempts: 3
+      validators:
+        - includes all related techniques from idea.md
+        - separates GW literature from general signal-processing literature
+        - marks unsupported novelty claims
+        - produces a list of missing citations
+        - does not invent papers
+    must_include:
+      - StackSlide
+      - PowerFlux
+      - Weave
+      - MBTA
+      - reduced order quadrature
+      - PCA / dimensionality reduction
+      - semicoherent template metrics
+      - relevant signal-processing analogues
+      - novelty risks
+
+  paper_analyzer:
+    purpose: >
+      Read a given paper in detail and produce an auditable synthesis that other
+      agents can use during the literature review and later theory/referee
+      phases.
+    activation: >
+      Invoke when given a paper, preprint, DOI, arXiv ID, PDF path, URL, or
+      citation that requires detailed analysis.
+    output: outputs/paper_analyses/{paper_slug}.md
+    callable_by:
+      - literature
+      - theory_and_optimization
+      - referee
+    ralph_loop:
+      enabled: true
+      min_attempts: 1
+      max_attempts: 2
+      validators:
+        - identifies bibliographic metadata and paper scope
+        - cites specific sections, equations, figures, tables, or page numbers
+        - separates the paper's claims from the agent's interpretation
+        - extracts assumptions, limitations, and applicability to idea.md
+        - flags uncertain readings rather than overclaiming
+        - does not invent results or citations
+    must_include:
+      - bibliographic metadata
+      - paper objective and scope
+      - methods and key assumptions
+      - main results
+      - equations, figures, tables, or sections relevant to the current project
+      - relationship to idea.md
+      - reusable takeaways for other agents
+      - novelty risks or conflicts with the proposed work
+      - limitations and caveats
+      - citation targets to add to the literature review
+    instructions:
+      - Read the paper closely before summarizing.
+      - Reference specific locations in the paper for every technical claim.
+      - Quote sparingly and only when exact wording matters.
+      - Prefer section, equation, figure, table, theorem, algorithm, and page references over vague attribution.
+      - Mark whether each takeaway is established by the paper, inferred from the paper, or speculative.
+      - Do not use the paper analysis as a substitute for checking adjacent literature.
+
+  theory_and_optimization:
+    purpose: >
+      Develop the mathematical formalism and analyze how to choose zeta and
+      T_coh optimally.
+    output: outputs/02_theory_and_optimization.md
+    ralph_loop:
+      enabled: true
+      min_attempts: 2
+      max_attempts: 4
+      validators:
+        - defines theta and zeta clearly
+        - gives a semicoherent statistic
+        - states the null distribution or says why it is not yet known
+        - states signal expectation or required assumptions
+        - includes a cost-versus-sensitivity objective
+        - includes the ordinary time-frequency stack-slide limit
+        - flags conjectural steps
+    must_include:
+      - signal parameters theta
+      - spectral coordinates zeta
+      - mapping between theta and zeta
+      - coherent chunk statistic
+      - semicoherent statistic
+      - weights
+      - null distribution
+      - signal expectation
+      - residual phase / mismatch criterion
+      - sensitivity versus computational-cost tradeoff
+      - limiting case reducing to ordinary stack-slide
+
+  referee:
+    purpose: >
+      Criticize the idea like a skeptical reviewer.
+    output: outputs/03_referee_report.md
+    ralph_loop:
+      enabled: true
+      min_attempts: 2
+      max_attempts: 2
+      validators:
+        - gives concrete objections rather than vague criticism
+        - identifies decisive tests
+        - identifies novelty risks
+        - checks whether this is just matched filtering in disguise
+    must_include:
+      - strongest objections
+      - unclear assumptions
+      - novelty concerns
+      - possible normalization errors
+      - missing tests
+      - whether this is genuinely different from matched filtering
+
+validators:
+
+artifact_completeness:
+  type: checklist
+  checks:
+    - required sections are present
+    - no empty placeholder sections
+    - assumptions are explicit
+    - unresolved questions are listed
+
+citation_sanity:
+  type: literature_check
+  checks:
+    - no invented citations
+    - each named method has a citation target
+    - novelty claims are hedged unless supported
+
+mathematical_sanity:
+  type: technical_check
+  checks:
+    - notation is defined before use
+    - limiting cases are checked
+    - dimensions/units are plausible
+    - null and signal hypotheses are distinguished
+    - coherent and semicoherent mismatch are not conflated
+
+research_value:
+  type: judgment_check
+  checks:
+    - output advances the research question
+    - output identifies next concrete steps
+    - output does not merely restate idea.md

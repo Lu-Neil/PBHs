@@ -1,12 +1,12 @@
 from pathlib import Path
 import sys
-
+import matplotlib.pyplot as plt
+import numpy as np
 import matplotlib
 
 matplotlib.use("Agg")
+plt.style.use("../paper.mplstyle")
 
-import matplotlib.pyplot as plt
-import numpy as np
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]

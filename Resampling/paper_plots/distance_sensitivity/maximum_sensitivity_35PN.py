@@ -167,7 +167,7 @@ def taylorf2_frequency_grid(f_min, f_max):
 
 # %%
 fspace = np.linspace(20, 200, 51)
-Mspace = np.logspace(-5, 0, 49)
+Mspace = np.logspace(-5, 1, 49)
 fgrid, Mgrid = np.meshgrid(fspace, Mspace)
 
 betaGrid = beta_calc(fgrid, Mgrid)

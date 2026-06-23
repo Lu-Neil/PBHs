@@ -116,7 +116,15 @@
         "Validated the conclusion with a /tmp scratch comparison: for Mc=1e-2 and t20=Tobs/4, geometric_metric.py predicted finite-offset stack-slide mismatches from stack_slide_retained_power closely, while semicoherent_pbh_bank.py underpredicted them by about a factor of 3.5 for representative logMc and t20 offsets.",
         "Explained the interpretation of <delta_bin_i^2>: its square root is the RMS coherent-bin offset along the track. For max_mismatch=0.03, the target RMS offset is only about 0.095 bins for sinc2 or 0.12 bins for bin-averaged-sinc2; half-bin RMS offsets are already large and outside the reliable quadratic metric regime.",
         "Discussed possible vectorization of the stack-slide search. There is no direct one-shot IFFT analogue over the full (Mc,t20) bank because Mc changes the track shape, but for fixed Mc the t20 coordinate is a translation and can be accelerated with chunked NumPy indexed gathers, sparse time-convolutions grouped by frequency bin, batched lookup tensors, or GPU gather/reduction.",
-        "Updated CODEX.md operating notes to read the last 5 repository-root DIARY.json entries at session start, add diary notes only after substantive file changes, and choose Nov2025 versus paper_plots as the default edit target based on task ownership."
+        "Updated CODEX.md operating notes to read the last 5 repository-root DIARY.json entries at session start, add diary notes only after substantive file changes, and choose Nov2025 versus paper_plots as the default edit target based on task ownership.",
+        "Recorded paper_plots AGENTS.md guidance: use conda run -n PBH for commands, keep scratch experiments in /tmp, treat Resampling/paper_plots as the active paper workflow while Nov2025 remains the main pipeline reference, preserve Jupytext structure for paired notebooks, and handle GW/NUFFT/5-vector formulas carefully because angular-frequency, tau-resampling, sidereal-sideband, and bin-mismatch conventions are easy to break."
+      ]
+    },
+    {
+      "date": "2026-06-14",
+      "notes": [
+        "Added CODEX.md guidance for finding locally stored Zotero papers under /home/neil-lu/Zotero/storage by querying the read-only Zotero SQLite database for attachment paths.",
+        "Rewrote and then shortened the Distance sensitivity section in Resampling/paper_plots/template_bank/tex/main.tex after checking the two local Astone 2014 Zotero papers: the statistic is now described as normalized periodogram power rather than Hough critical ratio, with derivation details delegated to Astone:2014esa and Astone:2014dea."
       ]
     }
   ]

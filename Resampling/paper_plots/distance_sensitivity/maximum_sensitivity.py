@@ -113,7 +113,7 @@ def distance_sensitivity(T, f0, Mc, l=47):
     #l := lambda. l=47 is the threshold for FAP=1e-6, detection probability = 0.95
     beta = beta_calc(f0, Mc)
     integration = integrated_chirp_power(T, f0, beta)
-    temp0 = 0.00757 / np.sqrt(l)
+    temp0 = 0.007517 / np.sqrt(l)
     temp1 = 3 * C * beta / f0**2
     return temp0 * temp1 * np.sqrt(integration)
 

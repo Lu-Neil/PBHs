@@ -1,4 +1,7 @@
 import numpy as np
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 
@@ -80,7 +83,6 @@ ax3.legend(loc='best')
 ax3.grid(True, which='both', alpha=0.3)
 
 plt.tight_layout()
-plt.show()
 
 print(f"Noise-weighted power evaluated over {f_power[0]:.2f}-{f_power[-1]:.2f} Hz")
 for Mc_msun, _, _, min_dfdt_1pn in power_curves:

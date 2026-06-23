@@ -54,6 +54,49 @@ The repository includes a Conda environment named `PBH` (`environment.yml`). Run
 For ad-hoc scripts and scratch experiments, write the file to `/tmp/` and execute it from there (e.g. `conda run -n PBH python /tmp/scratch.py`) rather than creating files inside the repo. This keeps the working tree clean of throwaway artifacts.
 
 
+## Finding Zotero Papers
+
+Many papers are stored under `/home/neil-lu/Zotero/storage`, which is Zotero's `storage/` folder. Subdirectory names such as `HGY2X65J` are Zotero attachment item keys, not hashes or title-derived names.
+
+When you know all or part of a Zotero item title, query `/home/neil-lu/Zotero/zotero.sqlite` to resolve the attachment path:
+
+```bash
+python3 - 'search terms here' <<'PY'
+import os
+import sqlite3
+import sys
+
+term = sys.argv[1].lower()
+db = '/home/neil-lu/Zotero/zotero.sqlite'
+storage = '/home/neil-lu/Zotero/storage'
+
+conn = sqlite3.connect(f'file:{db}?mode=ro', uri=True)
+cur = conn.cursor()
+
+query = """
+SELECT title.value, att.key, ia.path
+FROM items parent
+JOIN itemData d ON d.itemID = parent.itemID
+JOIN fields f ON f.fieldID = d.fieldID AND f.fieldName = 'title'
+JOIN itemDataValues title ON title.valueID = d.valueID
+JOIN itemAttachments ia ON ia.parentItemID = parent.itemID
+JOIN items att ON att.itemID = ia.itemID
+WHERE lower(title.value) LIKE ?
+  AND ia.path LIKE 'storage:%'
+ORDER BY title.value
+"""
+
+for title, key, path in cur.execute(query, (f'%{term}%',)):
+    filename = path.removeprefix('storage:')
+    print(title)
+    print(os.path.join(storage, key, filename))
+    print()
+PY
+```
+
+If the live database is locked because Zotero is open, use `/home/neil-lu/Zotero/zotero.sqlite.bak` or close Zotero first. Do not edit Zotero's SQLite database directly.
+
+
 ## Practical Guidance For Codex
 
 - Run paper-plot scripts from the repository root with `conda run -n PBH python Resampling/paper_plots/.../script.py` unless the script itself documents a different working directory.
@@ -93,4 +136,3 @@ Prefer making changes in the directory that owns the requested behavior: `Resamp
 ## Notebooks And Paired Files
 
 Some analysis scripts, including files under `Resampling/paper_plots/`, use Jupytext `py:percent` structure. `Resampling/Nov2025/jupytext.toml` also pairs notebooks with `py:percent` files. If you edit notebook-backed analysis, preserve the Jupytext cell markers and metadata instead of converting it into plain script format.
-

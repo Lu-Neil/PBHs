@@ -1,0 +1,8 @@
+COMMAND:
+/usr/local/bin/codex exec --cd /home/neil-lu/Dropbox/PBHs/Codebase/Resampling/paper_plots/R&D --sandbox workspace-write --output-last-message /home/neil-lu/Dropbox/PBHs/Codebase/Resampling/paper_plots/R&D/outputs/_smoke_planner.md --color never --model gpt-5.4-mini --profile smoke-low -
+
+STDOUT:
+
+
+STDERR:
+Error loading config.toml: --profile `smoke-low` cannot be used while /home/neil-lu/.codex/config.toml contains legacy `profile = "smoke-low"` or `[profiles.smoke-low]` config; move those settings into /home/neil-lu/.codex/smoke-low.config.toml and remove the legacy profile selector/table. See https://developers.openai.com/codex/config-advanced#profiles for more information.

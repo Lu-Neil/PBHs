@@ -1,4 +1,7 @@
 import numpy as np
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from scipy.integrate import cumulative_trapezoid
 from pathlib import Path
@@ -187,7 +190,6 @@ def main():
     ax.legend(loc="best")
     ax.grid(True, which="both", alpha=0.3)
     fig.tight_layout()
-    plt.show()
 
 
 if __name__ == "__main__":

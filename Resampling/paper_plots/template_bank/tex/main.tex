@@ -334,9 +334,9 @@ non-spinning, equal-mass systems in this analysis, but the techniques can
 be readily generalized to search for signals with additional degrees of
 freedom.
 
-For a given value of $\lambda$, the signal track predicts a frequency
-$f_i(\lambda)$ in the $i$th coherent chunk. The stack-slide power is the
-weighted sum of the coherent powers read from the corresponding bins,
+For a given value of $\lambda$, the signal model determines the frequency
+$f_i(\lambda)$ sampled in the $i$th coherent chunk. The semicoherent statistic
+is formed by summing the coherent power along this track,
 \begin{equation}
 \Lambda(\lambda)
 =
@@ -344,12 +344,12 @@ weighted sum of the coherent powers read from the corresponding bins,
 w_i,P\left[f_i(\lambda)\right] \, ,
 \label{eq:stack_slide_statistic}
 \end{equation}
-where $P_i[f_i]$ denotes the coherent power in chunk $i$ at the nearest available
-frequency bin to $f_i(\lambda)$, $C(\lambda)$ is the set of chunks for which
-the trial track lies inside the analysis band, and $w_i$ denotes the
-semicoherent weight. The weights account for the expected amplitude
-evolution of the signal, the effective detector PSD after the NUFFT
-operation, windowing factors, and gaps in the detector data. 
+where $P_i[f_i]$ denotes the coherent power in chunk $i$ at the frequency bin
+selected by the trial track, $C(\lambda)$ is the set of chunks for which the
+track lies inside the analysis band, and $w_i$ denotes the semicoherent weight.
+The weights account for the expected amplitude evolution of the signal, the
+effective detector PSD after the NUFFT operation, windowing factors, and gaps in
+the detector data. 
 
 Compared with a fully coherent matched-filter SNR accumulated over the
 same observing time, the stack-slide statistic incurs the usual semicoherent
@@ -359,196 +359,111 @@ $N_{\rm coh}^{1/4}$.
 
 \subsubsection{Template placement}
 \label{sec:power_stack_mismatch}
-A template bank is needed because the true values of $M_c$ and $t_{20}$ are not
-known. If a nearby template uses $\lambda+\Delta\lambda$ instead of $\lambda$, the
-track reads power from Fourier bins that are slightly displaced from the true
-signal track. The natural ``mismatch'' for this stage is therefore not the
-coherent waveform mismatch used in matched-filter analyses, but the fractional
-loss in the expected stack-slide power.
+A template bank is used to search for the values of $M_c$ and $t_{20}$ which are not
+known a-priori.  We implement the standard geometric approach to semicoherent template
+placement: define the loss of the search statistic caused by using an offset
+template, approximate that loss locally by a quadratic metric, and place
+templates so that the nearest-template loss is below a prescribed maximum.  This
+is the same template-bank principle used in matched-filter and semicoherent
+continuous-wave searches, although the statistic-specific mismatch differs from
+the coherent waveform overlap used in compact-binary matched filtering
+\cite{DUMMY_Prix2007,DUMMY_Wette2014,DUMMY_Weave2018}.
 
-Here we describe a geometric template bank for the parameter space of
-interest. The construction follows the same geometric principle as the template
-banks commonly used in conventional compact-binary searches
-\cite{Brown:2012nn}, and provides an estimate of the number of templates needed
-to cover the search space at a chosen maximum mismatch. The final template
-placement in a search need not use this particular geometric construction, and
-could instead use alternative bank-generation algorithms such as those described
-in \cite{Hanna:2022zpk,Hanna:2024tom,Kacanja:2024pjh,Roy:2017oul,Roy:2017qgg}.
-\nl{CW template placement algorithm papers? Ask Karl}
-
-For a small parameter offset $\Delta\lambda^a$, the predicted frequency in chunk
-$i$ is displaced by
+For a trial track $\lambda$, the search reads a coherent power from one
+frequency bin in each contributing chunk and forms the stack-slide statistic in
+Eq.~\eqref{eq:stack_slide_statistic}.  We therefore define the mismatch in
+terms of the expected stack-slide power recovered by the bins selected by a
+template.  If the signal has parameters $\lambda_s$ and the template has
+parameters $\lambda$, let
 \begin{equation}
-\Delta f_i
+\bar\Lambda(\lambda_s;\lambda)
 =
-\frac{\partial f_i}{\partial\lambda^a}\Delta\lambda^a ,
-\end{equation}
-where summation over repeated parameter indices is implied. The relevant
-dimensionless displacement is this frequency error in units of the local
-coherent bin width,
-\begin{align}
-d_i &
-=
-\frac{\Delta f_i}{\Delta f_{{\rm bin},i}} \\
-&= \frac{1}{\Delta f_{{\rm bin},i}}
-\frac{\partial f_i}{\partial \ln M_c}\Delta\ln M_c
-+
-\frac{1}{\Delta f_{{\rm bin},i}}
-\frac{\partial f_i}{\partial t_{20}}\Delta t_{20},
-\label{eq:semicoherent_bin_offset}
-\end{align}
-The coherent bin width here is the spacing of Fourier modes in the resampled
-frequency coordinate, not the spacing of the original detector-frame frequency
-axis. It is set by the duration of the chunk in the resampled coordinate. For a
-0PN template with chirp parameter $\beta_i$ in chunk $i$,
-\begin{equation}
-\Delta \tau_i
-=
-\frac{3}{5\beta_i}
+\sum_{i\in C(\lambda_s,\lambda)}
+w_i(\lambda)\,
+\mathbb{E}_{\lambda_s}
 \left[
-1
--
-\left(1-\frac{8}{3}\beta_i T_{\rm coh}\right)^{5/8}
+P_i\!\left(k_i(\lambda)\right)
 \right],
-\qquad
-\Delta f_{{\rm bin},i} = \frac{1}{\Delta\tau_i}.
-\label{eq:tau_bin_width}
+\label{eq:expected_stack_slide_power}
 \end{equation}
+where $k_i(\lambda)$ is the frequency bin selected by the template track in
+chunk $i$, and $C(\lambda_s,\lambda)$ denotes the chunks in which the signal and
+template are both in the searched band.  The expectation is over detector noise
+with the signal parameters held fixed.
 
-If a signal is offset from a Fourier bin by $d$ bins, the recovered coherent
-power is reduced by a bin-response function. Since the true signal frequency is
-not generally known relative to the nearest-bin centre, we use the bin-averaged
-response
+The retained-power ratio for a mismatched template is
 \begin{equation}
-B(d)
-=
-\int_{-1/2}^{1/2}
-\mathrm{sinc}^2(x+d)\,dx ,
-\label{eq:bin_averaged_response}
-\end{equation}
-where $\mathrm{sinc}(d)=\sin(\pi d)/(\pi d)$.
-
-The expected fraction of retained stack-slide power for an offset
-$\Delta\lambda^a$ is
-\begin{equation}
-R(\lambda,\Delta\lambda)
+R(\lambda_s;\lambda)
 =
 \frac{
-\sum_{i\in C(\lambda)}
-w_i B(d_i)
+\bar\Lambda(\lambda_s;\lambda)
 }{
-\sum_{i\in C(\lambda)}
-w_i B(0)
-}.
+\bar\Lambda(\lambda_s;\lambda_s)
+},
 \label{eq:stack_slide_retained_power}
 \end{equation}
-We
-therefore define the semicoherent mismatch as
+and the corresponding semicoherent mismatch is
 \begin{equation}
-\delta^2_{\rm sc}
+\delta^2_{\rm sc}(\lambda_s;\lambda)
 =
-1-R .
+1-R(\lambda_s;\lambda).
 \label{eq:semicoherent_mismatch}
 \end{equation}
+This quantity is distinct from a fully coherent waveform mismatch.  The
+semicoherent statistic has already discarded the relative phase between chunks,
+so nearby templates are close when they recover nearly the same expected
+weighted sum of chunk powers, rather than when their full time-domain waveforms
+have large phase-coherent overlap.
 
-For small offsets, the bin response is locally quadratic,
+For template counting and local placement, we approximate this retained-power
+loss by a smooth quadratic form.  For sufficiently small offsets
+$\Delta\lambda^a$,
 \begin{equation}
-\frac{B(d)}{B(0)}
+\delta^2_{\rm sc}(\lambda_s;\lambda_s+\Delta\lambda)
 =
-1-\kappa d^2 + {\cal O}(d^4),
-\end{equation}
-where
-\begin{equation}
-\kappa
-=
--\frac{1}{2}
-\left.
-\frac{d^2}{dd^2}
-\left[
-\frac{B(d)}{B(0)}
-\right]
-\right|_{d=0}.
-\end{equation}
-For the averaged response used here, $\kappa$ is evaluated numerically from
-this curvature. Substituting the quadratic expansion into
-Eq.~\eqref{eq:stack_slide_retained_power} gives
-\begin{equation}
-\delta^2_{\rm sc}
-\simeq
-g^{\rm sc}_{ab}\Delta\lambda^a\Delta\lambda^b,
+g^{\rm sc}_{ab}(\lambda_s)\Delta\lambda^a\Delta\lambda^b
+ + {\cal O}(\Delta\lambda^3),
+\label{eq:semicoherent_metric_expansion}
 \end{equation}
 with
 \begin{equation}
-g^{\rm sc}_{ab}
+g^{\rm sc}_{ab}(\lambda_s)
 =
-\kappa
-\frac{
-\sum_{i\in C(\lambda)}
-w_i
-\left[
-\Delta f_{{\rm bin},i}^{-1}
-\frac{\partial f_i}{\partial\lambda^a}
-\right]
-\left[
-\Delta f_{{\rm bin},i}^{-1}
-\frac{\partial f_i}{\partial\lambda^b}
-\right]
-}{
-\sum_{i\in C(\lambda)} w_i
-} .
+-\frac{1}{2}
+\left.
+\frac{\partial^2 R(\lambda_s;\lambda)}
+{\partial\lambda^a\partial\lambda^b}
+\right|_{\lambda=\lambda_s}.
 \label{eq:semicoherent_metric_tensor}
 \end{equation}
-This metric estimates the local template density required to cover the parameter
-space at a chosen maximum semicoherent mismatch. For a bank ${\cal B}$ covering
-the searched parameter space ${\cal P}$, the corresponding bank-level condition is
+In the numerical implementation this metric is evaluated from the local change
+in the expected stack-slide power, using the actual chunks and weights that
+contribute to the trial track.  The derivatives of the TaylorF2 track determine
+how offsets in $\ln M_c$ and $t_{20}$ change the sequence of chunk frequency
+bins sampled by the template.
+
+For a bank ${\cal B}$ covering the searched parameter space ${\cal P}$, the
+bank-level condition is
 \begin{equation}
 \delta^2_{\rm bank}
 =
-\max_{\lambda\in{\cal P}}
-\min_{\lambda'\in{\cal B}}
-\left[
-1-R(\lambda,\lambda'-\lambda)
-\right]
+\max_{\lambda_s\in{\cal P}}
+\min_{\lambda\in{\cal B}}
+\delta^2_{\rm sc}(\lambda_s;\lambda)
 \leq
 \delta^2_{\max}.
 \label{eq:semicoherent_bank_mismatch}
 \end{equation}
 Thus Eq.~\eqref{eq:stack_slide_retained_power} defines the pairwise retained
-power, while Eq.~\eqref{eq:semicoherent_bank_mismatch} states the worst-case
-nearest-template mismatch criterion for the full bank.
-
-This construction is analogous to geometric template placement in conventional
-compact-binary searches, but it is induced by a different loss function. In
-standard matched-filter searches, the metric is obtained from the local
-expansion of the noise-weighted waveform overlap,
-\begin{equation}
-\delta^2_{\rm coh}
-=
-1
--
-\max_{t_c,\phi_c}
-\left<
-\hat h(\lambda)
-\middle|
-\hat h(\lambda+\Delta\lambda)
-\right> .
-\label{eq:coherent_waveform_mismatch}
-\end{equation}
-The stack-slide statistic, however, has already discarded the relative phase
-between coherent chunks. Its geometry is therefore induced by the map from
-parameters to the sequence of coherent-bin powers sampled along a track, rather
-than by the map from parameters to a fully coherent waveform. Nearby templates
-are close when they recover nearly the same weighted stack-slide power.
-
-In practice, the derivatives $\partial f_i/\partial\ln M_c$ are evaluated by
-finite differences of TaylorF2 tracks, while
-$\partial f_i/\partial t_{20}=-\dot f_i$ is obtained from the same frequency
-evolution. The resulting frequency derivatives, in Hz, are divided chunk by
-chunk by the resampled-frequency bin width
-$\Delta f_{{\rm bin},i}=1/\Delta\tau_i$ before forming the metric. The sums in
-Eq.~\eqref{eq:semicoherent_metric_tensor} are evaluated at the actual coherent
-chunk centres that contribute to the track, rather than by a continuous time
-average.
+power, while Eq.~\eqref{eq:semicoherent_bank_mismatch} states the standard
+nearest-template covering criterion for the full bank.  In contrast to template
+banks constructed with a single constant metric, $g^{\rm sc}_{ab}(\lambda)$
+varies across the $(\ln M_c,t_{20})$ plane because the in-band chunk set, track
+derivatives, weights, and noise transfer function all depend on the signal
+parameters.  The bank construction must therefore use the metric locally, either
+through a variable-metric mesh, local patches over which the metric is
+approximately constant, or direct validation of a stochastic bank against
+Eq.~\eqref{eq:semicoherent_bank_mismatch}.
 
 
 \subsubsection{Template-count estimate}
@@ -563,73 +478,55 @@ The metric volume of the searched track space is
     \,d\ln M_c\,dt_{20}.
     \label{eq:semicoherent_metric_volume}
 \end{equation}
-For each chirp mass, the allowed range of $t_{20}$ is
-\begin{equation}
-    -T_{\rm band}(M_c) \leq t_{20} \leq T_{\rm obs},
-    \label{eq:t20_range}
-\end{equation}
-where $T_{\rm band}(M_c)$ is the TaylorF2 time required to chirp across the
-analysis band.  This convention includes signals that crossed $20\,{\rm Hz}$
-before the start of the observation, provided that some part of the track lies
-inside the observed data.
 
-For a target maximum stack-slide mismatch $\delta^2_{\max}$, the metric volume can
-be converted into a template-count estimate by dividing by a covering cell
-area.  In two dimensions,
+For a target maximum stack-slide mismatch $\delta^2_{\max}$, the metric volume
+can be converted into a template-count estimate using the standard
+covering-volume expression \cite{DUMMY_Prix2007,DUMMY_Wette2014,DUMMY_Weave2018},
 \begin{equation}
-    A_{\rm square} = 2\delta^2_{\max},
-    \qquad
-    A_{\rm hex} = \frac{3\sqrt{3}}{2}\delta^2_{\max},
+    N \simeq \theta
+    (\delta^2_{\max})^{-n/2}
+    \int_{\cal P}
+    \sqrt{\det g^{\rm sc}(\lambda)}\,d^n\lambda ,
+    \label{eq:standard_template_count}
 \end{equation}
-for square and hexagonal coverings, respectively.  Thus
-\begin{equation}
-    N_{\rm square}\simeq\frac{V_{\rm sc}}{A_{\rm square}},
-    \qquad
-    N_{\rm hex}\simeq\frac{V_{\rm sc}}{A_{\rm hex}}.
-    \label{eq:semicoherent_template_counts}
-\end{equation}
-These counts are intended to set the order of magnitude of the stack-slide
-problem and to guide the computational-cost estimates.
+where $n$ is the dimension of the bank and $\theta$ is the dimensionless
+covering factor set by the lattice geometry.  In two dimensions,
+$\theta=1/2$ for a square covering and
+$\theta=2/(3\sqrt{3})$ for a hexagonal covering
+\cite{DUMMY_Prix2007,DUMMY_Wette2014}.  These counts are intended to set the
+order of magnitude of the stack-slide problem and to guide the
+computational-cost estimates.
 
-The calculation does not, by itself, produce a final search bank.  In
-particular, it does not implement the binary-tree placement, metric-reuse
-rules, metric-failure recovery, boundary padding, or edge-effect handling used
-in MANIFOLD-style production banks.  Those details are important for a search
-whose efficiency must be validated at the boundaries of the target parameter
-space.  The present metric should therefore be viewed as the statistic-specific
-ingredient needed by a bank generator, not as a complete bank generator.  A
-production bank could be built by adapting MANIFOLD to use
-Eq.~\eqref{eq:semicoherent_metric_tensor}, or by validating a PyCBC brute-force
-or stochastic bank directly against the retained-power criterion in
-Eq.~\eqref{eq:stack_slide_retained_power}.
+The calculation does not, by itself, produce a final search bank.  A production
+bank must also include boundary handling and direct validation of the
+retained-power criterion in Eq.~\eqref{eq:stack_slide_retained_power}.  This
+validation is especially important here because the metric is evaluated locally
+rather than assumed to be constant over the full search region.
+
+The geometric construction above provides a template-count estimate and a
+natural local metric for the search space, but it need not be the placement
+algorithm used in a production search.  Other algorithms developed for
+compact-binary template banks \cite{Brown:2012nn}, including
+MANIFOLD-style, stochastic, or hybrid bank-generation strategies
+\cite{Hanna:2022zpk,Hanna:2024tom,Kacanja:2024pjh,Roy:2017oul,Roy:2017qgg},
+could be used with the same retained-power criterion.  Such algorithms may
+produce smaller banks at fixed retained power, particularly near boundaries or
+in regions where the local metric varies rapidly.
 
 \section{Distance sensitivity}
-We estimate the maximum distance sensitivity that our method is sensitive to determine whether searches performed on current generation gravitational-wave detector data could plausibly detect primordial black holes. A particular target of interest is the galactic center of the milky way because it hosts a large mass of dark matter \cite{} which could be used as a proxy for the primordial black holes mass distribution \cite{}, although see \cite{}. 
+We estimate the maximum distance at which an optimally matched version of the resampling method could detect a signal in current-generation gravitational-wave detector data.  A useful reference distance is the Galactic Center, at approximately $8\,\mathrm{kpc}$, because it is a nearby dark-matter-dense region.
 
-We analytically compute the distance sensitivity by following the general procedure outlined in \cite{}. For a fixed false-alarm probability (FAP) the threshold critical ratio (CR$^*$) is: 
-\begin{gather}
-\CR^* = -1 - \ln(\text{FAP}) \, , \label{eq:CR_thresh}
-\end{gather}
-For a false alarm probability of $10^{-6}$, the corresponding critical ratio is $CR^* =12.8$. We define the spectral amplitude to be: 
+The calculation follows the standard continuous-wave sensitivity treatment for a normalized periodogram peak \cite{Astone:2014esa}.  For a coherently demodulated template, the signal spectral amplitude is
 \begin{equation}
     \lambda = \frac{4|\tilde{h}(f)|^2}{T S_n(f)} \, , \label{eq:spectral_amplitude} 
 \end{equation}
-where $\tilde{h}(f)$ is the Fourier transform of the data, $S_n(f)$ is the noise spectral density, and $T$ is the signal duration. As following  Eq. X in \ref{} we compute the probability of a signal with a given CR and $\lambda$:
-\begin{equation}
-    p(\CR, \lambda) = e^{-\CR-1-\lambda/2}I_0(\sqrt{2\lambda (\CR+1)}) \, .
-    \label{eq:CR_pdf}
-\end{equation}
-The detection probability is now defined to be:
-\begin{equation}
-    P_{det}(\lambda) = \int_{\CR^*}^\infty e^{-\CR-1-\lambda/2}I_0(\sqrt{2\lambda (\CR+1)}) dCR \, , \label{eq:detection_probability}
-\end{equation}
-where $I_0$ is the modified Bessel function of the first kind. In practice we fix a detection probability and numerically invert the equation to compute the threshold spectral amplitude $\lambda^*$. For a detection probability of $95\%$ (and still using FAP = $10^{-6}$), the critical spectral amplitude is $\lambda^* = 46.5$. 
+where $\tilde{h}(f)$ is the Fourier coefficient of the signal, $S_n(f)$ is the one-sided noise spectral density, and $T$ is the coherent signal duration.  The normalized power is exponentially distributed in Gaussian noise and becomes a noncentral $\chi^2$ variable with two degrees of freedom in the presence of a signal \cite{Astone:2014esa}.  We therefore determine the threshold spectral amplitude $\lambda^*$ by inverting the corresponding survival probability.  For a single-trial false-alarm probability of $10^{-6}$ and detection probability of 95\%, $\lambda^*=46.5$.  This is the scalar periodogram-power statistic; it is distinct from the five-vector statistic used in narrow-band continuous-wave searches \cite{Astone:2014dea}.
 
-The maximum distance sensitivity is then computed by fixing the sky location (here taken to be the galactic centre), averaging over gravitational wave polarisation angle, inclination angle, power loss due to the Fourier window, and time varying detector beam patterns, to get: \green{probably too much info here}
+Using the averaged strain-amplitude conversion derived in Ref.~\cite{Astone:2014esa}, and substituting the PBH inspiral amplitude and frequency evolution from Sec.~\ref{sec:GWs_from_PBHs}, the optimal distance is
 \begin{equation}
     d_\opt = \frac{0.00757c\beta}{f_0^2\sqrt{\lambda^*}} \sqrt{\int_{t_0}^{t_0+T} \frac{(1-\frac{8}{3}\beta t)^{-1/2}}{S_n \left(f_0 \left( 1-\frac{8}{3}\beta t \right)^{-3/8} \right)} dt} \, . \label{eq:dist_sens}
 \end{equation}
-We can numerically solve Eq. \ref{eq:dist_sens} given a particular noise spectral density. Figure \ref{fig:distance_sensitivity} shows the computed distance sensitivity for the O4 design noise spectral density as a function of the signals parameters. The distance sensitivity strongly depends on the signals parameters, varying from $\mathcal{O}$(1pc) - $\mathcal{O}$(10Mpc). The red dotted line corresponds to the distance of the galactic centre (8kpc). This demonstrates that for the majority of the parameter space considered, the resampling method has a distance sensitivity that reaches the galactic center. Note that this described the \emph{optimal} distance sensitivity, for any real search where the signal's parameters are not known a-priori, additional signal power will be lost due to mismatches between the true signal parameters and the closest template, this mismatch power loss will be discussed in the following section. 
+We numerically evaluate Eq.~\eqref{eq:dist_sens} for a chosen detector noise spectral density.  Figure~\ref{fig:distance_sensitivity} shows the resulting distance sensitivity for the O4 design noise spectral density as a function of the signal parameters.  The distance sensitivity strongly depends on the signal parameters, varying from $\mathcal{O}(1\,\mathrm{pc})$ to $\mathcal{O}(10\,\mathrm{Mpc})$.  The red dotted line corresponds to the distance of the Galactic Center.  This estimate is an \emph{optimal} distance sensitivity: in a real search where the signal parameters are not known a priori, additional signal power is lost through mismatch between the true signal and the nearest template, as discussed in the following section.
 
 \begin{figure}
     \begin{nolinenumbers}
@@ -642,6 +539,128 @@ We can numerically solve Eq. \ref{eq:dist_sens} given a particular noise spectra
     \end{nolinenumbers}
 \end{figure}
 
+
+
+\subsection{Connection to CBC}
+\label{sec:connection_to_cbc}
+
+The distance estimate above can be written in the notation more commonly used
+for compact-binary-coalescence (CBC) searches.  In a CBC matched-filter search,
+the expected signal-to-noise ratio for a template $h$ in stationary Gaussian
+noise is
+\begin{equation}
+    \rho^2 = 4\int_0^\infty
+    \frac{|\tilde h(f)|^2}{S_n(f)}\,df .
+    \label{eq:cbc_snr}
+\end{equation}
+For an exactly demodulated chirp, this is the same noncentrality parameter as
+the normalized coherent power in Eq.~\eqref{eq:spectral_amplitude},
+\begin{equation}
+    \lambda = \rho^2 .
+    \label{eq:lambda_rho_equivalence}
+\end{equation}
+The difference between the CW and CBC presentations is therefore mostly
+notational: CW calculations usually start from the power in a demodulated
+Fourier bin, while CBC calculations start from the noise-weighted waveform
+inner product.
+
+To compare the normalizations explicitly, consider the optimally oriented and
+located source, so that the detector response reduces to the intrinsic
+amplitude $h_0(t)$ in Eq.~\eqref{eq:h0}.  The stationary-phase approximation
+for a real chirp gives
+\begin{equation}
+    |\tilde h(f)|^2
+    =
+    \frac{1}{4d^2}
+    \frac{{\cal A}^2[f]}{\dot f} ,
+    \qquad
+    {\cal A}(f)
+    =
+    4\left(\frac{G M_c}{c^2}\right)^{5/3}
+    \left(\frac{\pi f}{c}\right)^{2/3} ,
+    \label{eq:spa_amplitude}
+\end{equation}
+where ${\cal A}=d h_0$ is the distance-independent part of the time-domain
+amplitude.  Substituting Eq.~\eqref{eq:spa_amplitude} into
+Eq.~\eqref{eq:cbc_snr}, or equivalently changing variables from $f$ to $t$,
+gives
+\begin{equation}
+    \rho^2_{\rm opt}(d)
+    =
+    \frac{1}{d^2}
+    \int_{t_0}^{t_0+T}
+    \frac{{\cal A}^2[f(t)]}
+         {S_n[f(t)]}\,dt .
+    \label{eq:cbc_time_domain_snr}
+\end{equation}
+Using the 0PN relation between $\beta$ and $(M_c,f_0)$, the amplitude can be
+rewritten as
+\begin{equation}
+    {\cal A}[f(t)]
+    =
+    \frac{5c\beta}{24\pi^2 f_0^2}
+    \left(1-\frac{8}{3}\beta t\right)^{-1/4}.
+    \label{eq:amplitude_beta_form}
+\end{equation}
+The CBC horizon distance for a threshold $\rho_\ast$ is therefore
+\begin{equation}
+    d_{\rm CBC,opt}
+    =
+    \frac{5c\beta}{24\pi^2 f_0^2\rho_\ast}
+    \sqrt{
+    \int_{t_0}^{t_0+T}
+    \frac{
+    \left(1-\frac{8}{3}\beta t\right)^{-1/2}}
+    {S_n\!\left[
+    f_0\left(1-\frac{8}{3}\beta t\right)^{-3/8}
+    \right]}
+    \,dt
+    } .
+    \label{eq:cbc_distance_sensitivity}
+\end{equation}
+This has the same parameter dependence and the same noise-weighted integral as
+Eq.~\eqref{eq:dist_sens}, with the identification
+$\rho_\ast=\sqrt{\lambda^\ast}$.  Thus the CBC matched-filter calculation and
+the CW noncentral-$\chi^2$ calculation agree for the optimal coherent case,
+up to the convention-dependent numerical prefactor used to convert between the
+intrinsic CBC amplitude, detector antenna factors, and the scalar CW
+periodogram amplitude.  In particular,
+$5/(24\pi^2)=2.11\times10^{-2}$, while the numerical implementation used for
+Fig.~\ref{fig:distance_sensitivity} uses the closely related coefficient
+$3\times0.00757=2.27\times10^{-2}$.  This is an $8\%$ difference in distance
+and should be treated as a normalization convention to fix before quoting a
+final astrophysical sensitivity.  If Eq.~\eqref{eq:dist_sens} is used without
+the factor of three appearing in the plotting script, the distance is smaller
+than the CBC optimal value by a factor of about $2.8$.
+
+CBC searches often quote a \emph{range} rather than the optimal horizon
+distance.  For a short signal in a single detector with a fixed antenna pattern,
+the orientation- and sky-averaged range is approximately
+\begin{equation}
+    d_{\rm range} \simeq \frac{d_{\rm horizon}}{2.264}.
+    \label{eq:cbc_range_short_signal}
+\end{equation}
+For the long-duration signals considered here, the detector antenna pattern can
+change appreciably during the signal, so the exact CBC-style range should be
+computed by averaging the cubed distance reach over sky position, polarization,
+inclination, and start time,
+\begin{equation}
+    d_{\rm range}
+    =
+    \left\langle
+    d_{\rm hor}^3(\alpha,\delta,\psi,\iota,t_0)
+    \right\rangle_{\alpha,\delta,\psi,\iota,t_0}^{1/3}.
+    \label{eq:long_signal_range}
+\end{equation}
+This is the CBC analogue of an injection campaign: each draw fixes the antenna
+response and the signal duration in band, the statistic is evaluated at the
+chosen threshold, and the recovered fraction estimates the sensitive volume.
+The optimal distance in Eq.~\eqref{eq:cbc_distance_sensitivity} should
+therefore be compared with the CW calculation and simulations as a horizon
+distance.  The distance reached by a semicoherent stack-slide search is then
+reduced by the usual $N_{\rm coh}^{-1/4}$ factor, and by an additional
+$\sqrt{R}$ if the nearest template retains only a fraction $R$ of the coherent
+power.
 
 \subsection{Injection verification}
 

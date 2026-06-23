@@ -1,14 +1,14 @@
 # Fdb version 4
-["bibtex main"] 0 "main.aux" "main.bbl" "main" 0 0
-  "./mainNotes.bib" 1781243100.5117 0 d41d8cd98f00b204e9800998ecf8427e ""
-  "apsrev4-2-author-truncate.bst" 0 -1 0 ""
-  "main.aux" 0 -1 0 "pdflatex"
-  "zotero.bib" 0 -1 0 ""
+["bibtex main"] 1781419890.93919 "main.aux" "main.bbl" "main" 1781419891.74953 0
+  "../../tex/apsrev4-2-author-truncate.bst" 1780393129.41707 69797 3cfc73cb3a679d6f3890cbe1903b47d2 ""
+  "../../tex/zotero.bib" 1780393908.28177 118806 a13090fe4874e5ed83061218615eb1c4 ""
+  "./mainNotes.bib" 1781419891.35489 0 d41d8cd98f00b204e9800998ecf8427e ""
+  "main.aux" 1781419891.53589 13339 11e721d492b160a9286d7f865060c58b "pdflatex"
   (generated)
   "main.bbl"
   "main.blg"
   (rewritten before read)
-["pdflatex"] 1781244273.85989 "main.tex" "main.pdf" "main" 1781244274.91192 0
+["pdflatex"] 1781419890.98346 "main.tex" "main.pdf" "main" 1781419891.7501 0
   "/etc/texmf/web2c/texmf.cnf" 1756789491.65646 475 c0e671620eb5563b2130f56340a5fde8 ""
   "/usr/share/texlive/texmf-dist/fonts/map/fontname/texfonts.map" 1577235249 3524 cb3e574dea2d1052e39280babc910dc8 ""
   "/usr/share/texlive/texmf-dist/fonts/tfm/jknappen/ec/ecrm1000.tfm" 1136768653 3584 adb004a0c8e7c46ee66cad73671f37b4 ""
@@ -20,6 +20,7 @@
   "/usr/share/texlive/texmf-dist/fonts/tfm/public/amsfonts/symbols/msbm7.tfm" 1246382020 940 228d6584342e91276bf566bcf9716b83 ""
   "/usr/share/texlive/texmf-dist/fonts/tfm/public/latex-fonts/lasy6.tfm" 1136768653 520 4889cce2180234b97cad636b6039c722 ""
   "/usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/symbols/msam10.pfb" 1248133631 31764 459c573c03a4949a528c2cc7f557e217 ""
+  "/usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/symbols/msbm10.pfb" 1248133631 34694 ad62b13721ee8eda1dcc8993c8bd7041 ""
   "/usr/share/texlive/texmf-dist/tex/context/base/mkii/supp-pdf.mkii" 1461363279 71627 94eb9990bed73c364d7f53f960cc8c5b ""
   "/usr/share/texlive/texmf-dist/tex/generic/atbegshi/atbegshi.sty" 1575674566 24708 5584a51a7101caf7e6bbf1fc27d8f7b1 ""
   "/usr/share/texlive/texmf-dist/tex/generic/babel-english/english.ldf" 1496785618 7008 9ff5fdcc865b01beca2b0fe4a46231d4 ""
@@ -247,10 +248,10 @@
   "/usr/share/texmf/web2c/texmf.cnf" 1707919699 40399 f2c302f7d2af602abb742093540a5834 ""
   "/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map" 1756790464.98888 325460 1cee8f8dee02d4e22d8f26e9f8df0176 ""
   "/var/lib/texmf/web2c/pdftex/pdflatex.fmt" 1756790475 6800792 d489f1cf723dd74b7a44c6fdd27fb7f7 ""
-  "main.aux" 1781244274.69089 10186 ccf1d3c1a980ccf17f3f33f00307b087 "pdflatex"
-  "main.bbl" 0 -1 0 "bibtex main"
-  "main.out" 1781244274.69189 4454 5d34dbd35ccfe1ddf93b938cd8dc7e8d "pdflatex"
-  "main.tex" 1781244246.24955 50070 d0aa7b571a8a27b577f50310d230e81f ""
+  "main.aux" 1781419891.53589 13339 11e721d492b160a9286d7f865060c58b "pdflatex"
+  "main.bbl" 1781419890.97414 17014 e9add4e2b0b2df598af9548c9636c6df "bibtex main"
+  "main.out" 1781419891.53589 4708 be8913a580878adc3ebf3400a520f964 "pdflatex"
+  "main.tex" 1781419760.08475 52305 f5da69f7448f70632aa1d11e2382791e ""
   "revtex/aps10pt4-2.rtx" 1780393798.44101 4721 1078241377b2832c365c1e433df5a943 ""
   "revtex/aps4-2.rtx" 1780393798.44101 16396 0a96d75178570a7978b45d39eb710012 ""
   "revtex/revsymb4-2.sty" 1780393798.44101 5569 9d4c16602d5273e0163be33d78a388b1 ""

@@ -1,6 +1,9 @@
 from pathlib import Path
 
 import numpy as np
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from scipy.integrate import cumulative_trapezoid
 from scipy.interpolate import interp1d
@@ -160,7 +163,6 @@ ax_cdf.grid(True, which="both", alpha=0.3)
 fig_cdf.tight_layout()
 
 plt.tight_layout()
-plt.show()
 
 print(f"Noise-weighted power evaluated over {f_power[0]:.2f}-{f_power[-1]:.2f} Hz")
 for Mc_msun, _, _, min_dfdt_taylorf2 in power_curves:

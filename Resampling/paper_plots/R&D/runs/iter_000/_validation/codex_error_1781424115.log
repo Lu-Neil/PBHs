@@ -1,0 +1,15 @@
+COMMAND:
+/usr/local/bin/codex exec --cd /home/neil-lu/Dropbox/PBHs/Codebase/Resampling/paper_plots/R&D --sandbox workspace-write --ask-for-approval never --output-last-message /home/neil-lu/Dropbox/PBHs/Codebase/Resampling/paper_plots/R&D/outputs/_smoke_test.md --color never --model gpt-5.5 -
+
+STDOUT:
+
+
+STDERR:
+error: unexpected argument '--ask-for-approval' found
+
+  tip: to pass '--ask-for-approval' as a value, use '-- --ask-for-approval'
+
+Usage: codex exec [OPTIONS] [PROMPT]
+       codex exec [OPTIONS] <COMMAND> [ARGS]
+
+For more information, try '--help'.
