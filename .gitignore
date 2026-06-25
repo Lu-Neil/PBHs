@@ -1,2 +1,3 @@
 # exclude the .ipynb in Nov2025
 */Nov2025/*.ipynb
+*.pyc

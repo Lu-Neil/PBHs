@@ -61,7 +61,7 @@ INJECTION_EPOCH_JD = lal.ConvertCivilTimeToJD(INJECTION_EPOCH_TM_UTC)
 
 DEFAULTS = {
     "f0": 40.0,
-    "mchirp": 1.0e-2,
+    "mchirp": 1.0e-1,
     "f_min": 40.0,
     "f_max": 60.0,
     "chunk_duration": 30.0,
@@ -197,15 +197,10 @@ def chunk_starts(n_samples, chunk_samples, hop_samples):
     return np.arange(0, n_samples - chunk_samples + 1, hop_samples)
 
 
-def nufft_psd_point_spread(f_out, t_rel, beta, window):
+def effective_nufft_psd(f_out, t_rel, beta, window, noise):
     tau_dot = (1.0 - 8.0 / 3.0 * beta * t_rel) ** (-3.0 / 8.0)
     frequencies = f_out * tau_dot
-    weights = window**2
-    return frequencies, weights / np.sum(weights)
-
-
-def effective_nufft_psd(f_out, t_rel, beta, window, noise):
-    frequencies, weights = nufft_psd_point_spread(f_out, t_rel, beta, window)
+    weights = window**2 / np.sum(window**2)
     return float(np.sum(weights * noise.psd_at(frequencies)))
 
 
@@ -220,7 +215,7 @@ def track_power_for_chunk(signal, window, dt, f_start, beta, noise, resampler):
     idx = int(np.argmin(np.abs(resampler.freq_in_hz - f_start)))
     carrier_power = resampler.power_normalized[idx] / np.mean(window**2)
     psd = effective_nufft_psd(f_start, t_rel, beta, window, noise)
-    return float(4.0 * signal.size * dt * carrier_power / psd), psd
+    return float(4.0 * signal.size * dt * carrier_power / psd)
 
 
 def effective_chi_squared_params(n_chunks, window, hop_samples, statistic_scale):
@@ -262,8 +257,6 @@ def recover_track_power(t, strain, frequency_track, args, noise):
     times = []
     frequencies = []
     powers = []
-    betas = []
-    effective_psds = []
     for start in chunk_starts(strain.size, chunk_samples, hop_samples):
         stop = start + chunk_samples
         f_start = frequency_track[start]
@@ -271,10 +264,7 @@ def recover_track_power(t, strain, frequency_track, args, noise):
             continue
 
         beta = beta_0pn(f_start, args.mchirp)
-        times.append(t[start + chunk_samples // 2])
-        frequencies.append(f_start)
-        betas.append(beta)
-        power, psd = track_power_for_chunk(
+        power = track_power_for_chunk(
             strain[start:stop],
             window,
             dt,
@@ -283,16 +273,11 @@ def recover_track_power(t, strain, frequency_track, args, noise):
             noise,
             resampler,
         )
+        times.append(t[start + chunk_samples // 2])
+        frequencies.append(f_start)
         powers.append(power)
-        effective_psds.append(psd)
 
-    return (
-        np.asarray(times),
-        np.asarray(frequencies),
-        np.asarray(powers),
-        np.asarray(betas),
-        np.asarray(effective_psds),
-    )
+    return np.asarray(times), np.asarray(frequencies), np.asarray(powers)
 
 
 def plot_chunks(times, frequencies, powers, output):
@@ -339,7 +324,7 @@ def main():
     t, strain, frequency_track, eta, psi = make_injection(
         args, distance_m, duration
     )
-    times, frequencies, powers, betas, effective_psds = recover_track_power(
+    times, frequencies, powers = recover_track_power(
         t, strain, frequency_track, args, noise
     )
     plot_chunks(times, frequencies, powers, args.output)
@@ -375,7 +360,7 @@ def main():
     expected_statistic = null_mean + recovered_power
     p_value, sigma = null_significance(expected_statistic, dof, scale)
 
-    print("-"*9 + "Injection parameters" + "-"*9)
+    print("-" * 9 + "Injection parameters" + "-" * 9)
     print("No noise injection")
     print(f"f0: {args.f0:g} Hz")
     print(f"frequency band: {args.f_min:g}-{args.f_max:g} Hz")
@@ -400,11 +385,14 @@ def main():
     print(f"final semicoherent-path frequency: {f_end:.6g} Hz")
     print(f"distance sensitivity: {distance_m / PARSEC_M:.2e} pc")
     print(f"lambda threshold: {args.lambda_threshold:.12g}")
-    print(f"chunks in sensitivity formula: {chunk_count(duration, args.chunk_duration)}")
+    print(
+        "chunks in sensitivity formula: "
+        f"{chunk_count(duration, args.chunk_duration)}"
+    )
     print(f"analysis chunk duration: {args.chunk_duration:g} s")
     print(f"analysis chunk overlap: {args.chunk_overlap:.3g}")
     print(f"analysis chunks summed: {powers.size}")
-    print("-"*9 + "Analysis results" + "-"*9)
+    print("-" * 9 + "Analysis results" + "-" * 9)
     print(f"overlap/window-normalized recovered power: {window_normalized_power:.2e}")
     print(f"expected power: {expected_power:.2e}")
     print(f"expected sky-averaged power: {expected_sky_averaged_power:.2e}")
@@ -416,15 +404,6 @@ def main():
     print(f"expected statistic if in white noise: {expected_statistic:.2e}")
     print(f"null p-value for expected statistic: {p_value:.2e}")
     print(f"Gaussian-equivalent significance: {sigma:.2e} sigma")
-    # if powers.size:
-    #     print(f"chunk power range: {powers.min():.2e} to {powers.max():.2e}")
-    #     print(f"chunk beta range: {betas.min():.2e} to {betas.max():.2e}")
-    #     print(
-    #         "effective NUFFT PSD range: "
-    #         f"{effective_psds.min():.2e} to {effective_psds.max():.2e}"
-    #     )
-    # print(f"asd: {args.asd}")
-    # print(f"plot: {args.output}")
 
 
 if __name__ == "__main__":
