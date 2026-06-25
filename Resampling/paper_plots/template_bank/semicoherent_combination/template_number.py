@@ -17,20 +17,24 @@ import numpy as np
 try:
     from Resampling.paper_plots.signal_generators import (
         DEFAULT_ETA,
+        NoiseCurve,
         TaylorF2FrequencyModel,
+        beta_0pn,
     )
 except ModuleNotFoundError:
     REPO_ROOT = Path(__file__).resolve().parents[4]
     sys.path.insert(0, str(REPO_ROOT))
     from Resampling.paper_plots.signal_generators import (
         DEFAULT_ETA,
+        NoiseCurve,
         TaylorF2FrequencyModel,
+        beta_0pn,
     )
 
 
 DEFAULT_MCHIRP_MIN = 5.0e-4
 DEFAULT_MCHIRP_MAX = 1.0e-1
-DEFAULT_F0 = 20.0
+DEFAULT_F0 = 40.0
 DEFAULT_F_STOP = 64.0
 DEFAULT_T_OBS = 365.25 * 86400.0
 DEFAULT_T_COH = 30.0
@@ -39,6 +43,8 @@ DEFAULT_N_MCHIRP = 32
 DEFAULT_N_T20 = 48
 DEFAULT_N_TAYLORF2_GRID = 2048
 DEFAULT_FINITE_DIFF_FRACTION = 1.0e-4
+N_CHUNK_WEIGHT_SAMPLES = 8
+DEFAULT_ASD_PATH = Path(__file__).resolve().parents[2] / "asd.txt"
 
 HEXAGONAL_COVERING_THETA = 2.0 / (3.0 * np.sqrt(3.0))
 
@@ -67,6 +73,38 @@ def _chunk_elapsed_times(t20, track_duration, T_obs, t_coh):
     return elapsed[(elapsed >= 0.0) & (elapsed <= track_duration)]
 
 
+def _chunk_sample_frequencies(track, elapsed, t_coh):
+    half_chunk = 0.5 * t_coh
+    offsets = np.linspace(-half_chunk, half_chunk, N_CHUNK_WEIGHT_SAMPLES)
+    sample_elapsed = elapsed[:, None] + offsets[None, :]
+    sample_elapsed = np.clip(sample_elapsed, 0.0, track.t_end)
+    return track.frequency(sample_elapsed)
+
+
+def _tau_bin_width_hz(mchirp_msun, frequency, t_coh):
+    beta = beta_0pn(frequency, mchirp_msun)
+    bracket = 1.0 - (8.0 / 3.0) * beta * t_coh
+    tau_span = np.full_like(frequency, np.nan, dtype=float)
+    valid = bracket > 0.0
+    tau_span[valid] = (
+        3.0
+        / (5.0 * beta[valid])
+        * (1.0 - bracket[valid] ** (5.0 / 8.0))
+    )
+    return 1.0 / tau_span
+
+
+def _metric_weights(mchirp_msun, sample_frequency, noise_curve):
+    """Return fixed local weights for the fractional loss of sum w_i P_i."""
+    h0 = (mchirp_msun / 1.0e-3) ** (5.0 / 3.0)
+    h0 *= (sample_frequency / 50.0) ** (2.0 / 3.0)
+    amplitude_squared = np.mean(h0**2, axis=1)
+    effective_psd = np.mean(noise_curve.psd_at(sample_frequency), axis=1)
+    # The statistic weight is A_i^2 / S_eff_i^2, and the on-template raw
+    # signal power contributes another A_i^2 to the fractional-loss metric.
+    return amplitude_squared**2 / effective_psd**2
+
+
 def _metric_sqrt_det(
     mchirp_msun,
     t20,
@@ -78,6 +116,7 @@ def _metric_sqrt_det(
     eta,
     n_taylorf2_grid,
     finite_diff_fraction,
+    noise_curve,
 ):
     track = _track(mchirp_msun, f0, f_stop, eta, n_taylorf2_grid)
     elapsed = _chunk_elapsed_times(t20, track.t_end, T_obs, t_coh)
@@ -101,21 +140,42 @@ def _metric_sqrt_det(
         _frequency_derivative(track),
     )
 
-    bin_width_hz = 1.0 / t_coh
+    bin_width_hz = _tau_bin_width_hz(mchirp_msun, track.frequency(elapsed), t_coh)
+    valid_bin_width = np.isfinite(bin_width_hz) & (bin_width_hz > 0.0)
+    if not np.any(valid_bin_width):
+        return 0.0
+
+    elapsed = elapsed[valid_bin_width]
+    df_dmc = df_dmc[valid_bin_width]
+    df_dt = df_dt[valid_bin_width]
+    bin_width_hz = bin_width_hz[valid_bin_width]
+
     dmc_bins = np.asarray(df_dmc, dtype=float) / bin_width_hz
     dt20_bins = -np.asarray(df_dt, dtype=float) / bin_width_hz
+    sample_frequency = _chunk_sample_frequencies(track, elapsed, t_coh)
+    weights = _metric_weights(mchirp_msun, sample_frequency, noise_curve)
 
-    finite = np.isfinite(dmc_bins) & np.isfinite(dt20_bins)
+    finite = (
+        np.isfinite(dmc_bins)
+        & np.isfinite(dt20_bins)
+        & np.isfinite(weights)
+        & (weights > 0.0)
+    )
     if not np.any(finite):
         return 0.0
 
     dmc_bins = dmc_bins[finite]
     dt20_bins = dt20_bins[finite]
+    weights = weights[finite]
+    weight_sum = float(np.sum(weights))
+    if weight_sum <= 0.0:
+        return 0.0
 
-    # Kappa is intentionally omitted: mismatch ~= <delta_bin**2>.
-    g_mcmc = float(np.mean(dmc_bins**2))
-    g_mct20 = float(np.mean(dmc_bins * dt20_bins))
-    g_t20t20 = float(np.mean(dt20_bins**2))
+    # Kappa is intentionally omitted: mismatch ~= <delta_bin**2>.  The weights
+    # are held fixed locally, so derivatives of w_i(theta) are not included.
+    g_mcmc = float(np.sum(weights * dmc_bins**2) / weight_sum)
+    g_mct20 = float(np.sum(weights * dmc_bins * dt20_bins) / weight_sum)
+    g_t20t20 = float(np.sum(weights * dt20_bins**2) / weight_sum)
     det_g = max(0.0, g_mcmc * g_t20t20 - g_mct20**2)
     return float(np.sqrt(det_g))
 
@@ -131,6 +191,7 @@ def _metric_volume_at_mchirp(
     n_t20,
     n_taylorf2_grid,
     finite_diff_fraction,
+    noise_curve,
 ):
     track = _track(mchirp_msun, f0, f_stop, eta, n_taylorf2_grid)
     t20_values = np.linspace(-track.t_end, T_obs, n_t20)
@@ -146,6 +207,7 @@ def _metric_volume_at_mchirp(
                 eta=eta,
                 n_taylorf2_grid=n_taylorf2_grid,
                 finite_diff_fraction=finite_diff_fraction,
+                noise_curve=noise_curve,
             )
             for t20 in t20_values
         ],
@@ -189,6 +251,14 @@ def template_number(
     if n_mchirp < 2 or n_t20 < 2:
         raise ValueError("n_mchirp and n_t20 must be at least 2.")
 
+    noise_curve = NoiseCurve.from_asd_file(DEFAULT_ASD_PATH)
+    if f0 < noise_curve.frequency[0] or f_stop > noise_curve.frequency[-1]:
+        raise ValueError(
+            "The requested frequency band is outside "
+            f"{DEFAULT_ASD_PATH} "
+            f"[{noise_curve.frequency[0]:.6g}, {noise_curve.frequency[-1]:.6g}] Hz."
+        )
+
     mchirp_values = np.geomspace(mchirp_min, mchirp_max, n_mchirp)
     volume_by_mchirp = np.empty_like(mchirp_values)
     track_duration = np.empty_like(mchirp_values)
@@ -204,6 +274,7 @@ def template_number(
             n_t20=n_t20,
             n_taylorf2_grid=n_taylorf2_grid,
             finite_diff_fraction=finite_diff_fraction,
+            noise_curve=noise_curve,
         )
 
     metric_volume = float(np.trapezoid(volume_by_mchirp, mchirp_values))
@@ -224,6 +295,8 @@ def template_number(
         "f_stop_hz": float(f_stop),
         "T_obs_s": float(T_obs),
         "t_coh_s": float(t_coh),
+        "asd_path": str(DEFAULT_ASD_PATH),
+        "weight_model": "fractional-loss weights A_i^4 / S_eff^2, with Gamma_i = 1",
     }
 
 
@@ -255,6 +328,8 @@ def main():
     print("TaylorF2 semicoherent template-count estimate")
     print(f"  covering: {result['covering']}")
     print(f"  theta: {result['covering_theta']:.6e}")
+    print(f"  weights: {result['weight_model']}")
+    print(f"  ASD: {result['asd_path']}")
     print(f"  metric volume: {result['metric_volume']:.6e}")
     print(f"  template count: {result['template_count']:.6e}")
 

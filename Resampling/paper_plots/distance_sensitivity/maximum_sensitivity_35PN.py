@@ -32,7 +32,9 @@ PI = np.pi
 SOLAR_MASS_KG = lal.MSUN_SI
 PARSEC_M = lal.PC_SI
 MAX_OBS_TIME = 3e7
-LAMBDA_THRESHOLD = 34
+LAMBDA_THRESHOLD = 47
+SKY_AVERAGED_DISTANCE_PREFACTOR = 0.00742709 # integrated over inclination, polarization, ra, dec, Fourier bin error
+FOURIER_BIN_POWER_AVERAGE = 2.4308 / PI
 GALACTIC_CENTER_PC = 8000
 ANDROMEDA_PC = 7.65e5
 CHIRP_CONST = 96 / 5 * PI**(8 / 3) * (G / C**3)**(5 / 3)
@@ -165,74 +167,144 @@ def taylorf2_frequency_grid(f_min, f_max):
     return np.unique(np.concatenate(([f_min, f_max], grid)))
 
 
-# %%
-fspace = np.linspace(20, 200, 51)
-Mspace = np.logspace(-5, 1, 49)
-fgrid, Mgrid = np.meshgrid(fspace, Mspace)
-
-betaGrid = beta_calc(fgrid, Mgrid)
-tMax_grid = np.empty_like(fgrid)
-final_f = np.empty_like(fgrid)
-chirp_power_grid = np.empty_like(fgrid)
-
-for i, Mc in enumerate(Mspace):
-    evolution = TaylorF2FrequencyEvolution(
-        Mc,
-        taylorf2_frequency_grid(fspace.min(), F_MAX),
-    )
-    for j, f0 in enumerate(fspace):
-        time_to_fmax = evolution.elapsed_time_to(f0, F_MAX)
-        t_obs = min(time_to_fmax, MAX_OBS_TIME)
-        if time_to_fmax <= MAX_OBS_TIME:
-            f_end = F_MAX
-        else:
-            f_end = evolution.frequency_after(f0, t_obs)
-
-        tMax_grid[i, j] = t_obs
-        final_f[i, j] = f_end
-        chirp_power_grid[i, j] = evolution.integrated_chirp_power(f0, f_end)
-
-
 # %% [markdown]
 # ## Sensitivity
 
 # %%
-def distance_sensitivity(f0, Mc, integration, l=47):
-    # l := lambda. l=47 is the threshold for FAP=1e-6, detection probability = 0.95
+def distance_sensitivity(f0, Mc, integration, lambda_thresh=47):
+    # lambda_thresh is the spectral-amplitude threshold for the target FAP
+    # and detection probability.
     # The 3.5PN TaylorF2 evolution changes the integration endpoint and the
     # f(t)-dependent amplitude/noise term; the original Newtonian amplitude
-    # prefactor is retained for direct comparison with maximum_sensitivity.py.
+    # prefactor is retained, with the antenna term averaged over sky.
     beta = beta_calc(f0, Mc)
-    temp0 = 0.00757 / np.sqrt(l)
-    temp1 = 3 * C * beta / f0**2
+    temp0 = SKY_AVERAGED_DISTANCE_PREFACTOR / np.sqrt(lambda_thresh)
+    temp1 = C * beta / f0**2
     return temp0 * temp1 * np.sqrt(integration)
 
 
-# %%
-sens_grid = (
-    distance_sensitivity(fgrid, Mgrid, chirp_power_grid, l=LAMBDA_THRESHOLD)
-    / PARSEC_M
-)
+def antenna_response_power(
+    ra,
+    dec,
+    eta,
+    psi,
+    gmst,
+    detector_response=None,
+    weights=None,
+    bin_power_average=FOURIER_BIN_POWER_AVERAGE,
+):
+    if detector_response is None:
+        detector_response = lal.CachedDetectors[lal.LALDetectorIndexLLODIFF].response
+
+    gmst = np.atleast_1d(np.asarray(gmst, dtype=float))
+    f_plus = np.empty_like(gmst, dtype=float)
+    f_cross = np.empty_like(gmst, dtype=float)
+    for idx, gmst_value in enumerate(gmst):
+        f_plus[idx], f_cross[idx] = lal.ComputeDetAMResponse(
+            detector_response,
+            ra,
+            dec,
+            psi,
+            float(gmst_value),
+        )
+
+    response = (f_plus + 1j * eta * f_cross) / np.sqrt(1.0 + eta**2)
+    return bin_power_average * np.average(np.abs(response) ** 2, weights=weights)
+
+
+def power_at_distance(
+    distance_m,
+    f0,
+    Mc,
+    integration,
+    ra,
+    dec,
+    eta,
+    psi,
+    gmst,
+    detector_response=None,
+    weights=None,
+    bin_power_average=FOURIER_BIN_POWER_AVERAGE,
+):
+    response_power = antenna_response_power(
+        ra,
+        dec,
+        eta,
+        psi,
+        gmst,
+        detector_response=detector_response,
+        weights=weights,
+        bin_power_average=bin_power_average,
+    )
+    beta = beta_calc(f0, Mc)
+    prefactor_squared = response_power * 16.0 / PI**4 * (5.0 / 96.0) ** 2
+    return (
+        prefactor_squared
+        * (C * beta / f0**2) ** 2
+        * integration
+        / distance_m**2
+    )
+
 
 # %%
-fig, ax = pl.subplots()
-log_Mspace = np.log10(Mspace)
-log_sens_grid = np.log10(sens_grid)
-contour = ax.contourf(fspace, log_Mspace, log_sens_grid)
-fig.colorbar(contour, ax=ax, label="log(Distance Sensitivity / pc)")
-ax.contour(
-    fspace,
-    log_Mspace,
-    log_sens_grid,
-    [np.log10(GALACTIC_CENTER_PC), np.log10(ANDROMEDA_PC)],
-    colors=["red", "darkorange"],
-    linestyles="--",
-)
-ax.set_title(rf"Maximum distance sensitivity ({TAYLORF2_PN_LABEL} TaylorF2)")
-ax.set_xlabel("Initial frequency (Hz)")
-ax.set_ylabel(r"$log(M_c/M_\odot$)")
+def main():
+    fspace = np.linspace(20, 200, 51)
+    Mspace = np.logspace(-5, 1, 49)
+    fgrid, Mgrid = np.meshgrid(fspace, Mspace)
 
-line0 = Line2D([0], [0], label="Galactic center", color="r", ls="--")
-line1 = Line2D([0], [0], label="Andromeda", color="darkorange", ls="--")
-ax.legend(handles=[line0, line1])
-fig.savefig(FIG_DIR / "maximum_distance_sensitivity_35PN.png", bbox_inches="tight")
+    tMax_grid = np.empty_like(fgrid)
+    final_f = np.empty_like(fgrid)
+    chirp_power_grid = np.empty_like(fgrid)
+
+    for i, Mc in enumerate(Mspace):
+        evolution = TaylorF2FrequencyEvolution(
+            Mc,
+            taylorf2_frequency_grid(fspace.min(), F_MAX),
+        )
+        for j, f0 in enumerate(fspace):
+            time_to_fmax = evolution.elapsed_time_to(f0, F_MAX)
+            t_obs = min(time_to_fmax, MAX_OBS_TIME)
+            if time_to_fmax <= MAX_OBS_TIME:
+                f_end = F_MAX
+            else:
+                f_end = evolution.frequency_after(f0, t_obs)
+
+            tMax_grid[i, j] = t_obs
+            final_f[i, j] = f_end
+            chirp_power_grid[i, j] = evolution.integrated_chirp_power(f0, f_end)
+
+    sens_grid = (
+        distance_sensitivity(
+            fgrid,
+            Mgrid,
+            chirp_power_grid,
+            lambda_thresh=LAMBDA_THRESHOLD,
+        )
+        / PARSEC_M
+    )
+
+    fig, ax = pl.subplots()
+    log_Mspace = np.log10(Mspace)
+    log_sens_grid = np.log10(sens_grid)
+    contour = ax.contourf(fspace, log_Mspace, log_sens_grid)
+    fig.colorbar(contour, ax=ax, label="log(Distance Sensitivity / pc)")
+    ax.contour(
+        fspace,
+        log_Mspace,
+        log_sens_grid,
+        [np.log10(GALACTIC_CENTER_PC), np.log10(ANDROMEDA_PC)],
+        colors=["red", "darkorange"],
+        linestyles="--",
+    )
+    ax.set_title(rf"Maximum distance sensitivity ({TAYLORF2_PN_LABEL} TaylorF2)")
+    ax.set_xlabel("Initial frequency (Hz)")
+    ax.set_ylabel(r"$log(M_c/M_\odot$)")
+
+    line0 = Line2D([0], [0], label="Galactic center", color="r", ls="--")
+    line1 = Line2D([0], [0], label="Andromeda", color="darkorange", ls="--")
+    ax.legend(handles=[line0, line1])
+    fig.savefig(FIG_DIR / "maximum_distance_sensitivity_35PN.png", bbox_inches="tight")
+
+
+if __name__ == "__main__":
+    main()

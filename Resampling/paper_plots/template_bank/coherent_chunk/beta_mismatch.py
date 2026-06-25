@@ -8,6 +8,7 @@ frequency-domain inner product.
 import argparse
 import csv
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 import matplotlib
@@ -27,26 +28,18 @@ BANK_OUTPUT_PATH = SCRIPT_DIR / "figs" / "beta_mismatch_bank.csv"
 if str(PAPER_PLOTS_DIR) not in sys.path:
     sys.path.insert(0, str(PAPER_PLOTS_DIR))
 
-from signal_generators import NoiseCurve, beta_0pn, make_0pn_track  # noqa: E402
+from signal_generators import C, NoiseCurve, beta_0pn, make_0pn_track  # noqa: E402
 
 
+@dataclass
 class BetaMismatchConfig:
-    f_min = 40.0
-    f_max = 60.0
-    mchirp_min = 5.0e-4
-    mchirp_max = 1.0e-1
-    t_chunk = 30.0
-    max_mismatch = 0.05
-    sample_rate = 512.0
-    zero_pad_factor = 4
-    amplitude_frequency_power = 0.0
-
-    def __init__(self, **kwargs):
-        for name in CONFIG_FIELDS:
-            setattr(self, name, kwargs.pop(name, getattr(type(self), name)))
-        if kwargs:
-            unknown = ", ".join(sorted(kwargs))
-            raise TypeError(f"unknown config fields: {unknown}")
+    f_min: float = 40.0
+    f_max: float = 64.0
+    mchirp_min: float = 5.0e-4
+    mchirp_max: float = 1.0e-1
+    t_chunk: float = 30.0
+    max_mismatch: float = 0.05
+    sample_rate: float = 512.0
 
     @property
     def beta_min(self):
@@ -71,19 +64,6 @@ class BetaMismatchConfig:
         )
 
 
-CONFIG_FIELDS = (
-    "f_min",
-    "f_max",
-    "mchirp_min",
-    "mchirp_max",
-    "t_chunk",
-    "max_mismatch",
-    "sample_rate",
-    "zero_pad_factor",
-    "amplitude_frequency_power",
-)
-
-
 def time_samples(config):
     if config.t_chunk <= 0.0:
         raise ValueError("t_chunk must be positive.")
@@ -94,6 +74,19 @@ def time_samples(config):
     return dt * np.arange(n_samples), dt
 
 
+def mchirp_seconds_from_beta(beta, f0_hz):
+    return (
+        beta / ((96.0 / 5.0) * np.pi ** (8.0 / 3.0) * f0_hz ** (8.0 / 3.0))
+    ) ** (3.0 / 5.0)
+
+
+def distance_free_amplitude(beta, frequency, f0_hz):
+    mchirp_seconds = mchirp_seconds_from_beta(beta, f0_hz)
+    return 4.0 * (C * mchirp_seconds) ** (5.0 / 3.0) * (
+        np.pi * frequency / C
+    ) ** (2.0 / 3.0)
+
+
 def beta_waveform(beta, config, t):
     track = make_0pn_track(
         t,
@@ -101,23 +94,17 @@ def beta_waveform(beta, config, t):
         mchirp_msun=None,
         beta=beta,
     )
-    if config.amplitude_frequency_power == 0.0:
-        amplitude = 1.0
-    else:
-        amplitude = (track.frequency / track.frequency[0]) ** (
-            config.amplitude_frequency_power
-        )
+    amplitude = distance_free_amplitude(beta, track.frequency, config.f_ref)
     return np.asarray(amplitude * np.real(track.signal), dtype=float)
 
 
-def frequency_domain_inner_product(h1, h2, dt, noise, zero_pad_factor):
+def frequency_domain_inner_product(h1, h2, dt, noise):
     """Return 4 int h1(f)^* h2(f) / S_n(f) df for sampled real strains."""
 
     if h1.shape != h2.shape:
         raise ValueError("inner-product inputs must have the same shape.")
 
-    n_samples = h1.size
-    n_fft = max(n_samples, int(zero_pad_factor) * n_samples)
+    n_fft = h1.size
     frequency = np.fft.rfftfreq(n_fft, dt)
     h1_tilde = dt * np.fft.rfft(h1, n=n_fft)
     h2_tilde = dt * np.fft.rfft(h2, n=n_fft)
@@ -142,15 +129,9 @@ def waveform_mismatch(beta_signal, beta_template, config, noise, t, dt):
     h_signal = beta_waveform(beta_signal, config, t)
     h_template = beta_waveform(beta_template, config, t)
 
-    hss = frequency_domain_inner_product(
-        h_signal, h_signal, dt, noise, config.zero_pad_factor
-    ).real
-    htt = frequency_domain_inner_product(
-        h_template, h_template, dt, noise, config.zero_pad_factor
-    ).real
-    hst = frequency_domain_inner_product(
-        h_signal, h_template, dt, noise, config.zero_pad_factor
-    )
+    hss = frequency_domain_inner_product(h_signal, h_signal, dt, noise).real
+    htt = frequency_domain_inner_product(h_template, h_template, dt, noise).real
+    hst = frequency_domain_inner_product(h_signal, h_template, dt, noise)
     if hss <= 0.0 or htt <= 0.0:
         raise ValueError("Waveform norm is not positive.")
 
@@ -203,9 +184,6 @@ def build_beta_bank(config, noise):
         raise ValueError("computed beta_max must be larger than beta_min")
     if not 0.0 < config.max_mismatch < 1.0:
         raise ValueError("max_mismatch must be in the range (0, 1)")
-    if config.zero_pad_factor < 1:
-        raise ValueError("zero_pad_factor must be at least 1")
-
     t, dt = time_samples(config)
     betas = [float(config.beta_min)]
     beta = float(config.beta_min)
@@ -299,30 +277,9 @@ def parse_args():
         default=BetaMismatchConfig.max_mismatch,
     )
     parser.add_argument(
-        "--max-power-loss",
-        dest="max_mismatch",
-        type=float,
-        help=argparse.SUPPRESS,
-    )
-    parser.add_argument(
         "--sample-rate",
         type=float,
         default=BetaMismatchConfig.sample_rate,
-    )
-    parser.add_argument(
-        "--zero-pad-factor",
-        type=int,
-        default=BetaMismatchConfig.zero_pad_factor,
-    )
-    parser.add_argument(
-        "--amplitude-frequency-power",
-        type=float,
-        default=BetaMismatchConfig.amplitude_frequency_power,
-        help=(
-            "Power of instantaneous frequency used in the restricted "
-            "time-domain amplitude before FFT. Use 0 for unit-amplitude "
-            "phase-only waveforms."
-        ),
     )
     parser.add_argument("--asd", type=Path, default=ASD_PATH)
     parser.add_argument("--output", type=Path, default=OUTPUT_PATH)
@@ -340,8 +297,6 @@ def main():
         t_chunk=args.t_chunk,
         max_mismatch=args.max_mismatch,
         sample_rate=args.sample_rate,
-        zero_pad_factor=args.zero_pad_factor,
-        amplitude_frequency_power=args.amplitude_frequency_power,
     )
     noise = NoiseCurve.from_asd_file(args.asd)
     betas = build_beta_bank(config, noise)
@@ -369,8 +324,6 @@ def main():
     print(f"mismatch reference frequency: {config.f_ref:g} Hz")
     print(f"max_mismatch: {config.max_mismatch:.12g}")
     print(f"sample_rate: {config.sample_rate:.12g} Hz")
-    print(f"zero_pad_factor: {config.zero_pad_factor:d}")
-    print(f"amplitude_frequency_power: {config.amplitude_frequency_power:.12g}")
     print(f"asd: {args.asd}")
     print(f"templates required: {betas.size}")
     print(f"intervals: {betas.size - 1}")

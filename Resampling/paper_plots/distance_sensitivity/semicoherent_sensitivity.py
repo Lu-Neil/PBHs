@@ -14,25 +14,32 @@
 
 # %%
 from pathlib import Path
+import sys
+
 import matplotlib as mpl
 from matplotlib.lines import Line2D
 import numpy as np
 import matplotlib.pyplot as pl
 from scipy import interpolate, integrate
 
+SCRIPT_DIR = Path(__file__).resolve().parent if "__file__" in globals() else Path.cwd()
+PAPER_PLOTS_DIR = SCRIPT_DIR.parent
+
+if str(PAPER_PLOTS_DIR) not in sys.path:
+    sys.path.insert(0, str(PAPER_PLOTS_DIR))
+
+from distance_sensitivity.maximum_sensitivity_35PN import (
+    beta_calc,
+    distance_sensitivity as coherent_distance_sensitivity,
+)
+
 mpl.use("Agg")
-pl.style.use("../paper.mplstyle")
+pl.style.use(SCRIPT_DIR.parent / "paper.mplstyle")
 
 # %%
-C = 3e8
-G = 6.67e-11
-PI = np.pi
-SOLAR_MASS_KG = 2e30
 PARSEC_M = 3e16
-LAMBDA_THRESHOLD = 34
 GALACTIC_CENTER_PC = 8000
 ANDROMEDA_PC = 7.65e5
-CHIRP_CONST = 96 / 5 * PI**(8 / 3) * (G / C**3)**(5 / 3)
 
 F_START = 40
 F_END = 120
@@ -42,7 +49,6 @@ LOG_M_LOWER = -5
 LOG_M_UPPER = -1
 
 # %%
-SCRIPT_DIR = Path(__file__).resolve().parent if "__file__" in globals() else Path.cwd()
 ASD_PATH = SCRIPT_DIR.parents[1] / "asd.txt"
 FIG_DIR = SCRIPT_DIR / "figs"
 FIG_DIR.mkdir(exist_ok=True)
@@ -55,12 +61,6 @@ base_integrand = 1 / (asd_freq**(7 / 3) * asd_values**2)
 base_integral = integrate.cumulative_trapezoid(base_integrand, asd_freq, initial=0)
 asd_freq_diff = np.diff(asd_freq)
 base_integrand_slope = np.diff(base_integrand) / asd_freq_diff
-
-
-# %%
-def beta_calc(f0, Mc):
-    M = np.multiply(Mc, SOLAR_MASS_KG)
-    return CHIRP_CONST * f0**(8 / 3) * M**(5 / 3)
 
 
 def semicoherent_chunk_count_grid(signal_duration_grid, chunk_duration=CHUNK_DURATION):
@@ -79,6 +79,36 @@ def semicoherent_chunk_count_grid(signal_duration_grid, chunk_duration=CHUNK_DUR
 def apply_semicoherent_chunk_penalty(sensitivity_grid, chunk_count_grid):
     """Reduce sensitivity by the semicoherent combination factor M^(-1/4)."""
     return sensitivity_grid / np.asarray(chunk_count_grid) ** (1 / 4)
+
+
+def semicoherent_distance_sensitivity(
+    f0,
+    Mc,
+    integration,
+    duration,
+    chunk_duration=CHUNK_DURATION,
+    lambda_thresh=47,
+    mismatch_bank=0.05,
+    mismatch_coh=0.1,
+):
+    """Return d_sc = |C|^-1/4 sqrt((1-mu_max)(1-M_coh)) d_opt."""
+    if not 0.0 <= mismatch_bank < 1.0:
+        raise ValueError("mismatch_bank must be in [0, 1)")
+    if not 0.0 <= mismatch_coh < 1.0:
+        raise ValueError("mismatch_coh must be in [0, 1)")
+
+    coherent_sensitivity = coherent_distance_sensitivity(
+        f0,
+        Mc,
+        integration,
+        lambda_thresh=lambda_thresh,
+    )
+    chunk_count = semicoherent_chunk_count_grid(duration, chunk_duration)
+    mismatch_factor = np.sqrt((1.0 - mismatch_bank) * (1.0 - mismatch_coh))
+    return mismatch_factor * apply_semicoherent_chunk_penalty(
+        coherent_sensitivity,
+        chunk_count,
+    )
 
 
 def f_calc(t, f0, Mc, beta=None):
@@ -148,59 +178,81 @@ def integrated_chirp_power(T, f0, beta):
     )
 
 
-def distance_sensitivity(T, f0, Mc, l=47):
-    #l := lambda. l=47 is the threshold for FAP=1e-6, detection probability = 0.95
-    beta = beta_calc(f0, Mc)
-    integration = integrated_chirp_power(T, f0, beta)
-    temp0 = 0.00757 / np.sqrt(l)
-    temp1 = 3 * C * beta / f0**2
-    return temp0 * temp1 * np.sqrt(integration)
-
-# %%
-chunk_count_grid = semicoherent_chunk_count_grid(tMax_grid)
-max_sens_grid = distance_sensitivity(tMax_grid, fgrid, Mgrid, l=LAMBDA_THRESHOLD) / PARSEC_M
-semicoherent_sens_grid = apply_semicoherent_chunk_penalty(max_sens_grid, chunk_count_grid)
-galactic_center_reachable = np.any(semicoherent_sens_grid >= GALACTIC_CENTER_PC, axis=1)
-if np.any(galactic_center_reachable):
-    reachable_masses = Mspace[galactic_center_reachable]
-    print(
-        "Mc range reaching Galactic center for f0 between:"
-        f"{reachable_masses[0]:.1e} - {reachable_masses[-1]:.1e} Msun\n \n"
+def main():
+    chirp_power_grid = integrated_chirp_power(tMax_grid, fgrid, betaGrid)
+    max_sens_grid = (
+        coherent_distance_sensitivity(
+            fgrid,
+            Mgrid,
+            chirp_power_grid,
+        )
+        / PARSEC_M
     )
-else:
-    print("No Mc values reach the Galactic center for any f0.")
-
-# %%
-fig, axes = pl.subplots(1, 2, figsize=(12, 4.8), sharey=True, constrained_layout=True)
-log_Mspace = np.log10(Mspace)
-plot_grids = [
-    (max_sens_grid, "Coherent distance sensitivity"),
-    (semicoherent_sens_grid, "Semicoherent distance sensitivity"),
-]
-
-contour = None
-for ax, (sens_grid, title) in zip(axes, plot_grids):
-    log_sens_grid = np.log10(sens_grid)
-    contour = ax.contourf(fspace, log_Mspace, log_sens_grid, levels=range(1, 9))
-    ax.contour(
-        fspace,
-        log_Mspace,
-        log_sens_grid,
-        [np.log10(GALACTIC_CENTER_PC), np.log10(ANDROMEDA_PC)],
-        colors=['red', 'darkorange'],
-        linestyles='--',
+    semicoherent_sens_grid = (
+        semicoherent_distance_sensitivity(
+            fgrid,
+            Mgrid,
+            chirp_power_grid,
+            tMax_grid,
+            chunk_duration=CHUNK_DURATION,
+        )
+        / PARSEC_M
     )
-    ax.set_title(title)
-    ax.set_xlabel("Initial frequency (Hz)")
+    galactic_center_reachable = np.any(
+        semicoherent_sens_grid >= GALACTIC_CENTER_PC,
+        axis=1,
+    )
+    if np.any(galactic_center_reachable):
+        reachable_masses = Mspace[galactic_center_reachable]
+        print(
+            "Mc range reaching Galactic center for f0 between:"
+            f"{reachable_masses[0]:.1e} - {reachable_masses[-1]:.1e} Msun\n \n"
+        )
+    else:
+        print("No Mc values reach the Galactic center for any f0.")
 
-axes[0].set_ylabel(r'$log(M_c/M_\odot$)')
-fig.colorbar(contour, ax=axes, label=r'log(Distance Sensitivity / pc)')
+    fig, axes = pl.subplots(
+        1,
+        2,
+        figsize=(12, 4.8),
+        sharey=True,
+        constrained_layout=True,
+    )
+    log_Mspace = np.log10(Mspace)
+    plot_grids = [
+        (max_sens_grid, "Coherent distance sensitivity"),
+        (semicoherent_sens_grid, "Semicoherent distance sensitivity"),
+    ]
 
-line0 = Line2D([0], [0], label='Galactic center', color='r', ls='--')
-line1 = Line2D([0], [0], label='Andromeda', color='darkorange', ls='--')
-axes[0].legend(handles=[line0, line1])
-# fig.suptitle(f'Distance sensitivity, f={F_START}-{F_END} Hz')
-fig.savefig(FIG_DIR / f"distance_sensitivity_f={F_START}-{F_END}.png", bbox_inches="tight")
+    contour = None
+    for ax, (sens_grid, title) in zip(axes, plot_grids):
+        log_sens_grid = np.log10(sens_grid)
+        contour = ax.contourf(fspace, log_Mspace, log_sens_grid, levels=range(1, 9))
+        ax.contour(
+            fspace,
+            log_Mspace,
+            log_sens_grid,
+            [np.log10(GALACTIC_CENTER_PC), np.log10(ANDROMEDA_PC)],
+            colors=["red", "darkorange"],
+            linestyles="--",
+        )
+        ax.set_title(title)
+        ax.set_xlabel("Initial frequency (Hz)")
+
+    axes[0].set_ylabel(r"$log(M_c/M_\odot$)")
+    fig.colorbar(contour, ax=axes, label=r"log(Distance Sensitivity / pc)")
+
+    line0 = Line2D([0], [0], label="Galactic center", color="r", ls="--")
+    line1 = Line2D([0], [0], label="Andromeda", color="darkorange", ls="--")
+    axes[0].legend(handles=[line0, line1])
+    fig.savefig(
+        FIG_DIR / f"distance_sensitivity_f={F_START}-{F_END}.png",
+        bbox_inches="tight",
+    )
+
+
+if __name__ == "__main__":
+    main()
 
 
 # # %%

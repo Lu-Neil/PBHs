@@ -363,7 +363,7 @@ def save_plot(
     ax_speed.semilogx(ratios, speedups, "o-", color="tab:blue", lw=1.8)
     ax_speed.axhline(1.0, color="black", lw=1.0, ls="--", alpha=0.7)
     ax_speed.set_xlabel("Upsampling ratio")
-    ax_speed.set_ylabel("NUFFT / strobo speedup")
+    ax_speed.set_ylabel("NUFFT / stroboscopic speedup")
     ax_speed.grid(True, alpha=0.25)
     # ax_speed.set_title(
     #     rf"$M_c={MC_MSUN:.0e}M_\odot$, $f_0={F0_HZ:g}$ Hz, "
