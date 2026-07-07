@@ -32,7 +32,7 @@ PI = np.pi
 SOLAR_MASS_KG = lal.MSUN_SI
 PARSEC_M = lal.PC_SI
 MAX_OBS_TIME = 3e7
-LAMBDA_THRESHOLD = 47
+LAMBDA_THRESHOLD = 47.0
 SKY_AVERAGED_DISTANCE_PREFACTOR = 0.00742709 # integrated over inclination, polarization, ra, dec, Fourier bin error
 FOURIER_BIN_POWER_AVERAGE = 2.4308 / PI
 GALACTIC_CENTER_PC = 8000
@@ -171,7 +171,7 @@ def taylorf2_frequency_grid(f_min, f_max):
 # ## Sensitivity
 
 # %%
-def distance_sensitivity(f0, Mc, integration, lambda_thresh=47):
+def distance_sensitivity(f0, Mc, integration, lambda_thresh=47.0):
     # lambda_thresh is the spectral-amplitude threshold for the target FAP
     # and detection probability.
     # The 3.5PN TaylorF2 evolution changes the integration endpoint and the

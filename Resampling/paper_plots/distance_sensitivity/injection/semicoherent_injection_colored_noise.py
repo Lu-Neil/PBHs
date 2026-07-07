@@ -21,7 +21,7 @@ def parse_args():
     for name, default in base.DEFAULTS.items():
         parser.add_argument(
             f"--{name.replace('_', '-')}",
-            type=type(default),
+            type=base.default_arg_type(name, default),
             default=default,
         )
     parser.add_argument("--asd", type=Path, default=base.ASD_PATH)

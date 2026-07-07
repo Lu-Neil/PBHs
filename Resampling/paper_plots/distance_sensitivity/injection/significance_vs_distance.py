@@ -43,7 +43,7 @@ def parse_args():
     for name, default in injection.DEFAULTS.items():
         parser.add_argument(
             f"--{name.replace('_', '-')}",
-            type=type(default),
+            type=injection.default_arg_type(name, default),
             default=default,
         )
     parser.add_argument(

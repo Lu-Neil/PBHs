@@ -87,7 +87,7 @@ def semicoherent_distance_sensitivity(
     integration,
     duration,
     chunk_duration=CHUNK_DURATION,
-    lambda_thresh=47,
+    lambda_thresh=47.0,
     mismatch_bank=0.05,
     mismatch_coh=0.1,
 ):
@@ -253,28 +253,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-# # %%
-# def h0_calc(d, f, M):
-#     m_corr = M*2e30
-#     temp0 = 4/d
-#     temp1 = (G*m_corr/(c**2))**(5/3)
-#     temp2 = (pi*f/c)**(2/3)
-#     return temp0 * temp1 * temp2
-
-
-# # %%
-# def d_calc(h0, f, M):
-#     m_corr = M*2e30
-#     temp0 = 4/h0
-#     temp1 = (G*m_corr/(c**2))**(5/3)
-#     temp2 = (pi*f/c)**(2/3)
-#     return temp0 * temp1 * temp2
-
-
-# # %%
-# temp_dist = sens_grid[0,0] * 3e16
-# h0_calc(temp_dist, fspace[0], Mspace[0])
-
-# %%

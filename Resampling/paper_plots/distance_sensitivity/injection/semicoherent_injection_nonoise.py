@@ -71,6 +71,12 @@ DEFAULTS = {
 }
 
 
+def default_arg_type(name, default):
+    if name == "lambda_threshold":
+        return float
+    return type(default)
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description=(
@@ -81,7 +87,7 @@ def parse_args():
     for name, default in DEFAULTS.items():
         parser.add_argument(
             f"--{name.replace('_', '-')}",
-            type=type(default),
+            type=default_arg_type(name, default),
             default=default,
         )
     parser.add_argument("--asd", type=Path, default=ASD_PATH)
