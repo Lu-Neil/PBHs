@@ -10,14 +10,15 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.stats import chi2, norm
+from scipy.optimize import brentq
+from scipy.stats import chi2, ncx2, norm
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PAPER_PLOTS_DIR = SCRIPT_DIR.parents[1]
 ASD_PATH = PAPER_PLOTS_DIR / "asd.txt"
 OUTPUT_PATH = SCRIPT_DIR / "nonoise_injection.png"
-Z_DISTANCE_OUTPUT_PATH = SCRIPT_DIR / "z_vs_distance.png"
+Z_DISTANCE_OUTPUT_PATH = SCRIPT_DIR / "z_vs_distance_nonoise.png"
 
 if str(PAPER_PLOTS_DIR) not in sys.path:
     sys.path.insert(0, str(PAPER_PLOTS_DIR))
@@ -74,6 +75,8 @@ DEFAULTS = {
 DEFAULT_N_DISTANCES = 20
 DEFAULT_MIN_DISTANCE_RATIO = 0.5
 DEFAULT_MAX_DISTANCE_RATIO = 2.0
+DEFAULT_FALSE_ALARM_PROBABILITY = 1.0e-6
+DEFAULT_DETECTION_PROBABILITY = 0.95
 
 
 def default_arg_type(name, default):
@@ -98,6 +101,16 @@ def parse_args():
     parser.add_argument("--asd", type=Path, default=ASD_PATH)
     parser.add_argument("--output", type=Path, default=OUTPUT_PATH)
     parser.add_argument("--distance-output", type=Path, default=Z_DISTANCE_OUTPUT_PATH)
+    parser.add_argument(
+        "--false-alarm-probability",
+        type=float,
+        default=DEFAULT_FALSE_ALARM_PROBABILITY,
+    )
+    parser.add_argument(
+        "--detection-probability",
+        type=float,
+        default=DEFAULT_DETECTION_PROBABILITY,
+    )
     parser.add_argument("--n-distances", type=int, default=DEFAULT_N_DISTANCES)
     parser.add_argument(
         "--min-distance-ratio",
@@ -134,6 +147,10 @@ def validate_args(args):
 
 
 def validate_distance_scan_args(args):
+    if not 0.0 < args.false_alarm_probability < 1.0:
+        raise ValueError("false_alarm_probability must be in (0, 1)")
+    if not 0.0 < args.detection_probability < 1.0:
+        raise ValueError("detection_probability must be in (0, 1)")
     if args.n_distances < 2:
         raise ValueError("n_distances must be at least 2")
     if args.min_distance_ratio <= 0.0:
@@ -309,6 +326,37 @@ def null_significance(statistic, dof, scale):
     return p_value, sigma
 
 
+def required_noncentrality(false_alarm_probability, detection_probability, dof):
+    statistic_threshold = chi2.isf(false_alarm_probability, dof)
+
+    def detection_probability_error(noncentrality):
+        return (
+            ncx2.sf(statistic_threshold, dof, noncentrality)
+            - detection_probability
+        )
+
+    high = max(1.0, statistic_threshold)
+    while detection_probability_error(high) < 0.0:
+        high *= 2.0
+
+    return float(brentq(detection_probability_error, 0.0, high))
+
+
+def detection_thresholds(false_alarm_probability, detection_probability, dof, scale):
+    false_alarm_statistic = float(scale * chi2.isf(false_alarm_probability, dof))
+    noncentrality = required_noncentrality(
+        false_alarm_probability,
+        detection_probability,
+        dof,
+    )
+    return {
+        "false_alarm_statistic": false_alarm_statistic,
+        "false_alarm_gaussian_z": float(norm.isf(false_alarm_probability)),
+        "required_noncentrality": noncentrality,
+        "required_signal_statistic": float(scale * noncentrality),
+    }
+
+
 def recover_track_power(t, strain, frequency_track, args, noise):
     chunk_samples, hop_samples = chunk_config(args)
     dt = 1.0 / args.sample_rate
@@ -403,7 +451,7 @@ def plot_z_vs_distance(result, output):
         color="0.35",
         ls=":",
         lw=1.0,
-        label=r"$(\Lambda_\mathrm{thr} - \mu_0) / \sigma_0$",
+        label="95% detection threshold",
     )
     ax.set_xlabel("Injection distance [pc]")
     ax.set_ylabel(r"$z = (\Lambda - \mu_0) / \sigma_0$")
@@ -484,6 +532,17 @@ def main():
         )
     )
     sigma0 = float(np.sqrt(null_variance))
+    thresholds = detection_thresholds(
+        args.false_alarm_probability,
+        args.detection_probability,
+        dof,
+        scale,
+    )
+    required_signal_statistic = thresholds["required_signal_statistic"]
+    threshold_z = required_signal_statistic / sigma0
+    false_alarm_z = (
+        thresholds["false_alarm_statistic"] - null_mean
+    ) / sigma0
     reference_expected_power = expected_power_for_track(
         args,
         reference_distance_m,
@@ -500,7 +559,7 @@ def main():
     if reference_expected_signal_statistic <= 0.0:
         raise ValueError("expected signal statistic must be positive")
     distance_m = reference_distance_m * np.sqrt(
-        reference_expected_signal_statistic / (args.lambda_threshold * sigma0)
+        reference_expected_signal_statistic / required_signal_statistic
     )
 
     t, strain, frequency_track, eta, psi = make_injection(
@@ -512,7 +571,7 @@ def main():
     plot_chunks(times, frequencies, powers, args.output)
 
     recovered_power = overlap_scale * float(np.sum(powers))
-    threshold_unwindowed_power = args.lambda_threshold * sigma0 / hann_power_factor
+    threshold_unwindowed_power = required_signal_statistic / hann_power_factor
     expected_power = expected_power_for_track(
         args,
         distance_m,
@@ -526,7 +585,6 @@ def main():
     window_normalized_power = recovered_power / hann_power_factor
     expected_signal_statistic = hann_power_factor * expected_power
     expected_statistic = null_mean + expected_signal_statistic
-    threshold_z = args.lambda_threshold
     recovered_z_at_reference = recovered_power / sigma0
     expected_z_at_reference = expected_signal_statistic / sigma0
     distances_m, recovered_z = distance_scan(
@@ -552,6 +610,11 @@ def main():
         args.distance_output,
     )
     p_value, sigma = null_significance(expected_statistic, dof, scale)
+    expected_detection_probability = ncx2.sf(
+        thresholds["false_alarm_statistic"] / scale,
+        dof,
+        expected_signal_statistic / scale,
+    )
 
     print("-" * 9 + "Injection parameters" + "-" * 9)
     print("No noise injection")
@@ -581,7 +644,9 @@ def main():
         f"{reference_distance_m / PARSEC_M:.2e} pc"
     )
     print(f"distance sensitivity: {distance_m / PARSEC_M:.2e} pc")
-    print(f"lambda threshold: {args.lambda_threshold:.12g}")
+    print(f"legacy single-bin lambda threshold: {args.lambda_threshold:.12g}")
+    print(f"false alarm probability: {args.false_alarm_probability:.2e}")
+    print(f"detection probability target: {args.detection_probability:.3g}")
     print(
         "chunks in sensitivity formula: "
         f"{n_chunks}"
@@ -598,10 +663,22 @@ def main():
     print(f"overlap variance inflation: {variance_inflation:.2e}")
     print(f"null mean statistic: {null_mean:.2e}")
     print(f"null std statistic: {sigma0:.2e}")
+    print(
+        "false-alarm statistic threshold: "
+        f"{thresholds['false_alarm_statistic']:.2e}"
+    )
+    print(f"false-alarm Gaussian z: {thresholds['false_alarm_gaussian_z']:.2e}")
+    print(f"false-alarm threshold in script z: {false_alarm_z:.2e}")
+    print(
+        "required noncentrality for detection probability: "
+        f"{thresholds['required_noncentrality']:.2e}"
+    )
+    print(f"required signal statistic: {required_signal_statistic:.2e}")
     print(f"expected statistic if in white noise: {expected_statistic:.2e}")
-    print(f"threshold z: {threshold_z:.2e}")
+    print(f"required signal z: {threshold_z:.2e}")
     print(f"recovered z at distance sensitivity: {recovered_z_at_reference:.2e}")
     print(f"expected z at distance sensitivity: {expected_z_at_reference:.2e}")
+    print(f"detection probability at expected statistic: {expected_detection_probability:.3g}")
     print(f"null p-value for expected statistic: {p_value:.2e}")
     print(f"Gaussian-equivalent significance: {sigma:.2e} sigma")
     print(f"z(d) plot: {args.distance_output}")

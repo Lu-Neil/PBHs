@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This repository is a research codebase for gravitational-wave data analysis. The active work is split between core search-pipeline development in `Resampling/Nov2025/` and paper-facing plots, demonstrations, and supporting calculations in `Resampling/paper_plots/`.
+This repository is a research codebase for gravitational-wave data analysis. The active work is in `Resampling/paper_plots/`.
 
 The underlying search idea targets sources with a prescribed phase evolution, remaps the data into a nonuniform time coordinate `tau`, and uses a non-uniform FFT (via `finufft`) to recover signals that become approximately monochromatic in that resampled coordinate.
 
