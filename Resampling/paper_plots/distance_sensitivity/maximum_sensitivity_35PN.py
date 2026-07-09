@@ -200,6 +200,9 @@ def antenna_response_power(
     f_plus = np.empty_like(gmst, dtype=float)
     f_cross = np.empty_like(gmst, dtype=float)
     for idx, gmst_value in enumerate(gmst):
+        # LAL expects raw GMST and applies the RA/longitude geometry internally.
+        # The local five_vec scalar modulation also accepts raw GMST, but its
+        # analytic coefficients are written in source hour-angle variables.
         f_plus[idx], f_cross[idx] = lal.ComputeDetAMResponse(
             detector_response,
             ra,

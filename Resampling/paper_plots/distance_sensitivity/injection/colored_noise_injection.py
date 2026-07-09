@@ -1,11 +1,18 @@
 """Inject a 3.5PN chirp into colored noise and recover track power."""
 
 import argparse
+import sys
 from pathlib import Path
 
 import numpy as np
 
-import semicoherent_injection_nonoise as base
+SCRIPT_DIR = Path(__file__).resolve().parent
+PAPER_PLOTS_DIR = SCRIPT_DIR.parents[1]
+
+if str(PAPER_PLOTS_DIR) not in sys.path:
+    sys.path.insert(0, str(PAPER_PLOTS_DIR))
+
+from distance_sensitivity.injection import nonoise_injection as base  # noqa: E402
 
 
 OUTPUT_PATH = base.SCRIPT_DIR / "semicoherent_track_injection_colored_noise.png"
@@ -59,7 +66,7 @@ def main():
 
     noise = base.NoiseCurve.from_asd_file(args.asd)
     frequency_model = base.semicoherent_frequency_model(args)
-    duration, f_end = base.observation_span(frequency_model)
+    duration, f_end, n_chunks = base.analysis_span(args, frequency_model)
     chirp_power = base.integrated_chirp_power_35pn(
         args.f0,
         f_end,
@@ -90,7 +97,6 @@ def main():
 
     overlap_scale = 1.0 - args.chunk_overlap
     recovered_statistic = overlap_scale * float(np.sum(powers))
-    n_chunks = base.chunk_count(duration, args.chunk_duration)
     expected_sky_averaged_power = args.lambda_threshold * np.sqrt(n_chunks)
     response_weights = frequency_track ** (4.0 / 3.0) / noise.psd_at(frequency_track)
     expected_signal_power = base.power_at_distance(
@@ -155,7 +161,7 @@ def main():
     print(f"lambda threshold: {args.lambda_threshold:.12g}")
     print(
         "chunks in sensitivity formula: "
-        f"{base.chunk_count(duration, args.chunk_duration)}"
+        f"{n_chunks}"
     )
     print(f"analysis chunk duration: {args.chunk_duration:g} s")
     print(f"analysis chunk overlap: {args.chunk_overlap:.3g}")

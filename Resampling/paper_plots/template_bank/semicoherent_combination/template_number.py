@@ -9,6 +9,7 @@ with the notes; f0 is 20 Hz by default but can be changed.
 from __future__ import annotations
 
 import argparse
+import csv
 import sys
 from pathlib import Path
 
@@ -45,6 +46,12 @@ DEFAULT_N_TAYLORF2_GRID = 2048
 DEFAULT_FINITE_DIFF_FRACTION = 1.0e-4
 N_CHUNK_WEIGHT_SAMPLES = 8
 DEFAULT_ASD_PATH = Path(__file__).resolve().parents[2] / "asd.txt"
+DEFAULT_LOOKUP_COST_PATH = (
+    Path(__file__).resolve().parent
+    / "figs"
+    / "semicoherent_pbh_lookup_cost.csv"
+)
+DEFAULT_COHERENT_BETA_TEMPLATES = 56
 
 HEXAGONAL_COVERING_THETA = 2.0 / (3.0 * np.sqrt(3.0))
 
@@ -300,6 +307,62 @@ def template_number(
     }
 
 
+def chunk_template_summary(
+    *,
+    lookup_cost_path=DEFAULT_LOOKUP_COST_PATH,
+    coherent_beta_templates=DEFAULT_COHERENT_BETA_TEMPLATES,
+):
+    """Summarize active chunk counts over the saved semicoherent bank.
+
+    The lookup-cost CSV has one row per chirp-mass slice.  Its
+    ``total_lookup_entries`` column is the sum, over all crossing-time
+    templates in that slice, of the number of coherent chunks that contribute
+    to each track.  Summing that column therefore gives the relevant
+    semicoherent track-chunk count for the whole bank.
+    """
+
+    lookup_cost_path = Path(lookup_cost_path)
+    if coherent_beta_templates <= 0:
+        raise ValueError("coherent_beta_templates must be positive.")
+
+    with lookup_cost_path.open(newline="") as f:
+        rows = list(csv.DictReader(f))
+
+    if not rows:
+        raise ValueError(f"No rows found in {lookup_cost_path}.")
+
+    total_track_templates = sum(
+        int(row["nonzero_lookup_templates"]) for row in rows
+    )
+    total_lookup_entries = sum(
+        int(row["total_lookup_entries"]) for row in rows
+    )
+    total_sum_additions = sum(
+        int(row["total_sum_additions"]) for row in rows
+    )
+    row_lookup_entries = [int(row["total_lookup_entries"]) for row in rows]
+
+    return {
+        "lookup_cost_path": str(lookup_cost_path),
+        "mchirp_slices": len(rows),
+        "track_templates": int(total_track_templates),
+        "track_chunk_templates": int(total_lookup_entries),
+        "sum_additions": int(total_sum_additions),
+        "mean_chunks_per_track": float(
+            total_lookup_entries / total_track_templates
+        ),
+        "min_track_chunk_templates_per_mchirp": int(min(row_lookup_entries)),
+        "max_track_chunk_templates_per_mchirp": int(max(row_lookup_entries)),
+        "coherent_beta_templates": int(coherent_beta_templates),
+        "beta_expanded_track_chunk_templates": int(
+            total_lookup_entries * coherent_beta_templates
+        ),
+        "beta_expanded_sum_additions": int(
+            total_sum_additions * coherent_beta_templates
+        ),
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Estimate a TaylorF2 semicoherent (Mc, t20) template count."
@@ -322,16 +385,84 @@ def main():
         type=float,
         default=DEFAULT_FINITE_DIFF_FRACTION,
     )
+    parser.add_argument(
+        "--lookup-cost-csv",
+        type=Path,
+        default=DEFAULT_LOOKUP_COST_PATH,
+        help=(
+            "CSV containing per-mass active chunk counts for the discrete "
+            "semicoherent bank."
+        ),
+    )
+    parser.add_argument(
+        "--coherent-beta-templates",
+        type=int,
+        default=DEFAULT_COHERENT_BETA_TEMPLATES,
+        help="Number of coherent beta templates for the optional beta-expanded count.",
+    )
+    parser.add_argument(
+        "--skip-metric-estimate",
+        action="store_true",
+        help="Only summarize the saved chunk-template lookup-cost table.",
+    )
+    parser.add_argument(
+        "--chunk-template-summary",
+        action="store_true",
+        help="Also summarize the saved chunk-template lookup-cost table.",
+    )
     args = parser.parse_args()
 
-    result = template_number(**vars(args))
-    print("TaylorF2 semicoherent template-count estimate")
-    print(f"  covering: {result['covering']}")
-    print(f"  theta: {result['covering_theta']:.6e}")
-    print(f"  weights: {result['weight_model']}")
-    print(f"  ASD: {result['asd_path']}")
-    print(f"  metric volume: {result['metric_volume']:.6e}")
-    print(f"  template count: {result['template_count']:.6e}")
+    lookup_cost_csv = args.lookup_cost_csv
+    coherent_beta_templates = args.coherent_beta_templates
+    skip_metric_estimate = args.skip_metric_estimate
+    chunk_template_summary_requested = (
+        args.chunk_template_summary or skip_metric_estimate
+    )
+    metric_args = vars(args).copy()
+    del metric_args["lookup_cost_csv"]
+    del metric_args["coherent_beta_templates"]
+    del metric_args["skip_metric_estimate"]
+    del metric_args["chunk_template_summary"]
+
+    if not skip_metric_estimate:
+        result = template_number(**metric_args)
+        print("TaylorF2 semicoherent template-count estimate")
+        print(f"  covering: {result['covering']}")
+        print(f"  theta: {result['covering_theta']:.6e}")
+        print(f"  weights: {result['weight_model']}")
+        print(f"  ASD: {result['asd_path']}")
+        print(f"  metric volume: {result['metric_volume']:.6e}")
+        print(f"  template count: {result['template_count']:.6e}")
+
+    if chunk_template_summary_requested:
+        chunk_summary = chunk_template_summary(
+            lookup_cost_path=lookup_cost_csv,
+            coherent_beta_templates=coherent_beta_templates,
+        )
+        print("Discrete semicoherent chunk-template estimate")
+        print(f"  lookup table: {chunk_summary['lookup_cost_path']}")
+        print(f"  mchirp slices: {chunk_summary['mchirp_slices']}")
+        print(f"  track templates: {chunk_summary['track_templates']:.6e}")
+        print(
+            "  mean active chunks per track: "
+            f"{chunk_summary['mean_chunks_per_track']:.3f}"
+        )
+        print(
+            "  track-chunk templates: "
+            f"{chunk_summary['track_chunk_templates']:.6e}"
+        )
+        print(f"  sum additions: {chunk_summary['sum_additions']:.6e}")
+        print(
+            "  per-mchirp track-chunk range: "
+            f"{chunk_summary['min_track_chunk_templates_per_mchirp']:.6e} "
+            "to "
+            f"{chunk_summary['max_track_chunk_templates_per_mchirp']:.6e}"
+        )
+        print(
+            "  beta-expanded track-chunk templates "
+            f"(N_beta={chunk_summary['coherent_beta_templates']}): "
+            f"{chunk_summary['beta_expanded_track_chunk_templates']:.6e}"
+        )
 
 
 if __name__ == "__main__":

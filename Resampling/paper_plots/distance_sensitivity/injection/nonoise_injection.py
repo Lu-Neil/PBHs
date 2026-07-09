@@ -16,7 +16,8 @@ from scipy.stats import chi2, norm
 SCRIPT_DIR = Path(__file__).resolve().parent
 PAPER_PLOTS_DIR = SCRIPT_DIR.parents[1]
 ASD_PATH = PAPER_PLOTS_DIR / "asd.txt"
-OUTPUT_PATH = SCRIPT_DIR / "semicoherent_track_injection.png"
+OUTPUT_PATH = SCRIPT_DIR / "nonoise_injection.png"
+Z_DISTANCE_OUTPUT_PATH = SCRIPT_DIR / "z_vs_distance.png"
 
 if str(PAPER_PLOTS_DIR) not in sys.path:
     sys.path.insert(0, str(PAPER_PLOTS_DIR))
@@ -70,6 +71,10 @@ DEFAULTS = {
     "lambda_threshold": LAMBDA_THRESHOLD,
 }
 
+DEFAULT_N_DISTANCES = 20
+DEFAULT_MIN_DISTANCE_RATIO = 0.5
+DEFAULT_MAX_DISTANCE_RATIO = 2.0
+
 
 def default_arg_type(name, default):
     if name == "lambda_threshold":
@@ -92,6 +97,20 @@ def parse_args():
         )
     parser.add_argument("--asd", type=Path, default=ASD_PATH)
     parser.add_argument("--output", type=Path, default=OUTPUT_PATH)
+    parser.add_argument("--distance-output", type=Path, default=Z_DISTANCE_OUTPUT_PATH)
+    parser.add_argument("--n-distances", type=int, default=DEFAULT_N_DISTANCES)
+    parser.add_argument(
+        "--min-distance-ratio",
+        type=float,
+        default=DEFAULT_MIN_DISTANCE_RATIO,
+        help="Smallest plotted distance as a multiple of the semicoherent distance.",
+    )
+    parser.add_argument(
+        "--max-distance-ratio",
+        type=float,
+        default=DEFAULT_MAX_DISTANCE_RATIO,
+        help="Largest plotted distance as a multiple of the semicoherent distance.",
+    )
     return parser.parse_args()
 
 
@@ -114,8 +133,17 @@ def validate_args(args):
         raise ValueError("lambda_threshold must be positive")
 
 
+def validate_distance_scan_args(args):
+    if args.n_distances < 2:
+        raise ValueError("n_distances must be at least 2")
+    if args.min_distance_ratio <= 0.0:
+        raise ValueError("min_distance_ratio must be positive")
+    if args.max_distance_ratio <= args.min_distance_ratio:
+        raise ValueError("max_distance_ratio must exceed min_distance_ratio")
+
+
 def chunk_count(duration, chunk_duration):
-    return max(1, int(np.ceil(duration / chunk_duration)))
+    return int(np.floor(duration / chunk_duration))
 
 
 def semicoherent_frequency_model(args):
@@ -130,6 +158,17 @@ def observation_span(frequency_model):
     if frequency_model.t_end <= MAX_OBS_TIME:
         return frequency_model.t_end, frequency_model.f_stop_hz
     return MAX_OBS_TIME, float(frequency_model.frequency(MAX_OBS_TIME))
+
+
+def analysis_span(args, frequency_model):
+    duration, _ = observation_span(frequency_model)
+    n_chunks = chunk_count(duration, args.chunk_duration)
+    if n_chunks < 1:
+        raise ValueError("observation span is shorter than one analysis chunk")
+
+    duration = n_chunks * args.chunk_duration
+    f_end = float(frequency_model.frequency(duration))
+    return duration, f_end, n_chunks
 
 
 def integrated_chirp_power_35pn(f_start, f_end, frequency_model, noise):
@@ -183,9 +222,13 @@ def antenna_pattern_modulation(t):
     return template.amp_modulation, INJECTION_ETA, INJECTION_PSI
 
 
+def sample_times(sample_rate, duration):
+    dt = 1.0 / sample_rate
+    return dt * np.arange(int(np.ceil(duration * sample_rate)))
+
+
 def make_injection(args, distance_m, duration):
-    dt = 1.0 / args.sample_rate
-    t = dt * np.arange(int(np.ceil(duration * args.sample_rate)))
+    t = sample_times(args.sample_rate, duration)
     track = make_35pn_track(t, args.f0, args.f_max, args.mchirp)
     antenna_modulation, eta, psi = antenna_pattern_modulation(t)
     strain = (
@@ -201,6 +244,22 @@ def chunk_starts(n_samples, chunk_samples, hop_samples):
     if n_samples < chunk_samples:
         return np.array([], dtype=int)
     return np.arange(0, n_samples - chunk_samples + 1, hop_samples)
+
+
+def chunk_config(args):
+    chunk_samples = int(round(args.chunk_duration * args.sample_rate))
+    hop_samples = int(round(chunk_samples * (1.0 - args.chunk_overlap)))
+    if chunk_samples < 2 or hop_samples < 1:
+        raise ValueError("invalid chunking configuration")
+    return chunk_samples, hop_samples
+
+
+def count_summed_chunks(frequency_track, args):
+    chunk_samples, hop_samples = chunk_config(args)
+    starts = chunk_starts(frequency_track.size, chunk_samples, hop_samples)
+    frequencies = frequency_track[starts]
+    in_band = (args.f_min <= frequencies) & (frequencies <= args.f_max)
+    return int(np.count_nonzero(in_band))
 
 
 def effective_nufft_psd(f_out, t_rel, beta, window, noise):
@@ -251,11 +310,7 @@ def null_significance(statistic, dof, scale):
 
 
 def recover_track_power(t, strain, frequency_track, args, noise):
-    chunk_samples = int(round(args.chunk_duration * args.sample_rate))
-    hop_samples = int(round(chunk_samples * (1.0 - args.chunk_overlap)))
-    if chunk_samples < 2 or hop_samples < 1:
-        raise ValueError("invalid chunking configuration")
-
+    chunk_samples, hop_samples = chunk_config(args)
     dt = 1.0 / args.sample_rate
     window = np.hanning(chunk_samples)
     resampler = Resampler(nthreads=4, eps=1e-2)
@@ -305,42 +360,73 @@ def plot_chunks(times, frequencies, powers, output):
     plt.close(fig)
 
 
-def main():
-    args = parse_args()
-    validate_args(args)
+def distance_scan(distance_m, reference_signal_statistic, sigma0, args):
+    ratios = np.linspace(
+        args.min_distance_ratio,
+        args.max_distance_ratio,
+        args.n_distances,
+    )
+    z = reference_signal_statistic / sigma0 / ratios**2
+    return distance_m * ratios, z
 
-    noise = NoiseCurve.from_asd_file(args.asd)
-    frequency_model = semicoherent_frequency_model(args)
-    duration, f_end = observation_span(frequency_model)
-    chirp_power = integrated_chirp_power_35pn(
-        args.f0,
-        f_end,
-        frequency_model,
-        noise,
-    )
-    distance_m = semicoherent_distance_sensitivity(
-        args.f0,
-        args.mchirp,
-        chirp_power,
-        duration,
-        chunk_duration=args.chunk_duration,
-        lambda_thresh=args.lambda_threshold,
-    )
 
-    t, strain, frequency_track, eta, psi = make_injection(
-        args, distance_m, duration
-    )
-    times, frequencies, powers = recover_track_power(
-        t, strain, frequency_track, args, noise
-    )
-    plot_chunks(times, frequencies, powers, args.output)
+def plot_z_vs_distance(result, output):
+    fig, ax = plt.subplots(figsize=(7.2, 4.6), constrained_layout=True)
+    distance_pc = result["distances_m"] / PARSEC_M
 
-    overlap_scale = 1.0 - args.chunk_overlap
-    recovered_power = overlap_scale * float(np.sum(powers))
-    n_chunks = chunk_count(duration, args.chunk_duration)
-    expected_sky_averaged_power = args.lambda_threshold * np.sqrt(n_chunks)
+    ax.plot(
+        distance_pc,
+        result["expected_z"],
+        marker="o",
+        ms=3.5,
+        lw=1.5,
+        label="Expected signal",
+    )
+    ax.plot(
+        distance_pc,
+        result["recovered_z"],
+        marker="s",
+        ms=3.5,
+        lw=1.2,
+        ls="--",
+        label="Recovered no-noise scaling",
+    )
+    ax.axvline(
+        result["distance_m"] / PARSEC_M,
+        color="k",
+        ls=":",
+        lw=1.0,
+        label="Semicoherent distance",
+    )
+    ax.axhline(
+        result["threshold_z"],
+        color="0.35",
+        ls=":",
+        lw=1.0,
+        label=r"$(\Lambda_\mathrm{thr} - \mu_0) / \sigma_0$",
+    )
+    ax.set_xlabel("Injection distance [pc]")
+    ax.set_ylabel(r"$z = (\Lambda - \mu_0) / \sigma_0$")
+    ax.grid(True, alpha=0.25)
+    ax.legend()
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output, dpi=220)
+    plt.close(fig)
+
+
+def expected_power_for_track(
+    args,
+    distance_m,
+    chirp_power,
+    t,
+    frequency_track,
+    eta,
+    psi,
+    noise,
+):
     response_weights = frequency_track ** (4.0 / 3.0) / noise.psd_at(frequency_track)
-    expected_power = power_at_distance(
+    return power_at_distance(
         distance_m,
         args.f0,
         args.mchirp,
@@ -352,18 +438,119 @@ def main():
         injection_gmst(t),
         weights=response_weights,
     )
-    window = np.hanning(int(round(args.chunk_duration * args.sample_rate)))
+
+
+def main():
+    args = parse_args()
+    validate_args(args)
+    validate_distance_scan_args(args)
+
+    noise = NoiseCurve.from_asd_file(args.asd)
+    frequency_model = semicoherent_frequency_model(args)
+    duration, f_end, n_chunks = analysis_span(args, frequency_model)
+    chirp_power = integrated_chirp_power_35pn(
+        args.f0,
+        f_end,
+        frequency_model,
+        noise,
+    )
+    reference_distance_m = semicoherent_distance_sensitivity(
+        args.f0,
+        args.mchirp,
+        chirp_power,
+        duration,
+        chunk_duration=args.chunk_duration,
+        lambda_thresh=args.lambda_threshold,
+        mismatch_bank=0.0,
+        mismatch_coh=0.0,
+    )
+
+    overlap_scale = 1.0 - args.chunk_overlap
+    chunk_samples, hop_samples = chunk_config(args)
+    window = np.hanning(chunk_samples)
     hann_power_factor = np.mean(window) ** 2 / np.mean(window**2)
-    window_normalized_power = recovered_power / hann_power_factor
+
+    t = sample_times(args.sample_rate, duration)
+    frequency_track = np.asarray(frequency_model.frequency(t), dtype=float)
+    eta = INJECTION_ETA
+    psi = INJECTION_PSI
+    n_summed_chunks = count_summed_chunks(frequency_track, args)
     null_mean, null_variance, dof, scale, variance_inflation = (
         effective_chi_squared_params(
-            powers.size,
+            n_summed_chunks,
             window,
-            int(round(window.size * overlap_scale)),
+            hop_samples,
             overlap_scale,
         )
     )
-    expected_statistic = null_mean + recovered_power
+    sigma0 = float(np.sqrt(null_variance))
+    reference_expected_power = expected_power_for_track(
+        args,
+        reference_distance_m,
+        chirp_power,
+        t,
+        frequency_track,
+        eta,
+        psi,
+        noise,
+    )
+    reference_expected_signal_statistic = (
+        hann_power_factor * reference_expected_power
+    )
+    if reference_expected_signal_statistic <= 0.0:
+        raise ValueError("expected signal statistic must be positive")
+    distance_m = reference_distance_m * np.sqrt(
+        reference_expected_signal_statistic / (args.lambda_threshold * sigma0)
+    )
+
+    t, strain, frequency_track, eta, psi = make_injection(
+        args, distance_m, duration
+    )
+    times, frequencies, powers = recover_track_power(
+        t, strain, frequency_track, args, noise
+    )
+    plot_chunks(times, frequencies, powers, args.output)
+
+    recovered_power = overlap_scale * float(np.sum(powers))
+    threshold_unwindowed_power = args.lambda_threshold * sigma0 / hann_power_factor
+    expected_power = expected_power_for_track(
+        args,
+        distance_m,
+        chirp_power,
+        t,
+        frequency_track,
+        eta,
+        psi,
+        noise,
+    )
+    window_normalized_power = recovered_power / hann_power_factor
+    expected_signal_statistic = hann_power_factor * expected_power
+    expected_statistic = null_mean + expected_signal_statistic
+    threshold_z = args.lambda_threshold
+    recovered_z_at_reference = recovered_power / sigma0
+    expected_z_at_reference = expected_signal_statistic / sigma0
+    distances_m, recovered_z = distance_scan(
+        distance_m,
+        recovered_power,
+        sigma0,
+        args,
+    )
+    _, expected_z = distance_scan(
+        distance_m,
+        expected_signal_statistic,
+        sigma0,
+        args,
+    )
+    plot_z_vs_distance(
+        {
+            "distance_m": distance_m,
+            "distances_m": distances_m,
+            "recovered_z": recovered_z,
+            "expected_z": expected_z,
+            "threshold_z": threshold_z,
+        },
+        args.distance_output,
+    )
     p_value, sigma = null_significance(expected_statistic, dof, scale)
 
     print("-" * 9 + "Injection parameters" + "-" * 9)
@@ -389,11 +576,15 @@ def main():
     )
     print(f"signal duration: {duration:.2f} s")
     print(f"final semicoherent-path frequency: {f_end:.6g} Hz")
+    print(
+        "zero-mismatch semicoherent distance estimate: "
+        f"{reference_distance_m / PARSEC_M:.2e} pc"
+    )
     print(f"distance sensitivity: {distance_m / PARSEC_M:.2e} pc")
     print(f"lambda threshold: {args.lambda_threshold:.12g}")
     print(
         "chunks in sensitivity formula: "
-        f"{chunk_count(duration, args.chunk_duration)}"
+        f"{n_chunks}"
     )
     print(f"analysis chunk duration: {args.chunk_duration:g} s")
     print(f"analysis chunk overlap: {args.chunk_overlap:.3g}")
@@ -401,15 +592,19 @@ def main():
     print("-" * 9 + "Analysis results" + "-" * 9)
     print(f"overlap/window-normalized recovered power: {window_normalized_power:.2e}")
     print(f"expected power: {expected_power:.2e}")
-    print(f"expected sky-averaged power: {expected_sky_averaged_power:.2e}")
+    print(f"unwindowed power required for threshold z: {threshold_unwindowed_power:.2e}")
     print(f"effective chi2 dof: {dof:.2e}")
     print(f"effective chi2 scale: {scale:.2e}")
     print(f"overlap variance inflation: {variance_inflation:.2e}")
     print(f"null mean statistic: {null_mean:.2e}")
-    print(f"null std statistic: {np.sqrt(null_variance):.2e}")
+    print(f"null std statistic: {sigma0:.2e}")
     print(f"expected statistic if in white noise: {expected_statistic:.2e}")
+    print(f"threshold z: {threshold_z:.2e}")
+    print(f"recovered z at distance sensitivity: {recovered_z_at_reference:.2e}")
+    print(f"expected z at distance sensitivity: {expected_z_at_reference:.2e}")
     print(f"null p-value for expected statistic: {p_value:.2e}")
     print(f"Gaussian-equivalent significance: {sigma:.2e} sigma")
+    print(f"z(d) plot: {args.distance_output}")
 
 
 if __name__ == "__main__":

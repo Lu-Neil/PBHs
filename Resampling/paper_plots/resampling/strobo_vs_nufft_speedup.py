@@ -1,11 +1,8 @@
-from __future__ import annotations
-
 import argparse
 import csv
-import time
-from dataclasses import dataclass
-from pathlib import Path
 import sys
+import time
+from pathlib import Path
 
 import matplotlib
 
@@ -32,28 +29,23 @@ F0_HZ = 20.0
 F_NEW_HZ = 500.0
 NUFFT_SAMPLES = 2**20
 THREADS = 4
-RATIO_COUNT = 17
-RATIOS = tuple(float(ratio) for ratio in np.geomspace(2.0, 128.0, RATIO_COUNT))
 REPEATS = 3
+RATIOS = tuple(np.geomspace(2.0, 128.0, 17))
+
+CSV_FIELDS = [
+    "f_ratio",
+    "strobo_input_hz",
+    "eps",
+    "strobo_samples",
+    "strobo_output_samples",
+    "nufft_samples",
+    "strobo_seconds",
+    "nufft_seconds",
+    "nufft_speedup",
+]
 
 
-@dataclass(frozen=True)
-class BenchmarkRow:
-    f_ratio: float
-    strobo_input_hz: float
-    eps: float
-    strobo_samples: int
-    strobo_output_samples: int
-    nufft_samples: int
-    strobo_seconds: float
-    nufft_seconds: float
-
-    @property
-    def nufft_speedup(self) -> float:
-        return self.strobo_seconds / self.nufft_seconds
-
-
-def pbh_beta(f0_hz: float, mc_msun: float) -> float:
+def pbh_beta(f0_hz, mc_msun):
     mc_si = mc_msun * MSUN
     return (
         96.0
@@ -65,17 +57,10 @@ def pbh_beta(f0_hz: float, mc_msun: float) -> float:
     )
 
 
-def build_signal(
-    beta: float,
-    *,
-    f0_hz: float,
-    n_samples: int,
-    sample_rate_hz: float,
-    dtype: np.dtype = np.complex64,
-) -> tuple[np.ndarray, np.ndarray]:
+def build_signal(beta, f0_hz, n_samples, sample_rate_hz):
     t = np.arange(n_samples, dtype=np.float64) / sample_rate_hz
-
     chirp_factor = 1.0 - (8.0 / 3.0) * beta * t
+
     if np.any(chirp_factor <= 0.0):
         raise ValueError("Requested signal reaches coalescence during the observation.")
 
@@ -87,85 +72,54 @@ def build_signal(
         * chirp_factor ** (5.0 / 8.0)
         / beta
     )
-    signal = np.exp(1j * (phase - phase[0])).astype(dtype, copy=False)
+    signal = np.exp(1j * (phase - phase[0])).astype(np.complex64, copy=False)
 
     tau = -(3.0 / (5.0 * beta)) * chirp_factor ** (5.0 / 8.0)
     tau -= tau[0]
     return signal, tau
 
 
-def strobo_resample(
-    tau: np.ndarray,
-    data: np.ndarray,
-    *,
-    output_rate_hz: float,
-    target_samples: int,
-) -> np.ndarray:
+def strobo_resample(tau, data, output_rate_hz, target_samples):
     scaled_tau = tau * output_rate_hz
-    floor_tau = np.floor(scaled_tau)
-    indices = np.nonzero(np.diff(floor_tau))[0]
+    indices = np.nonzero(np.diff(np.floor(scaled_tau)))[0]
+
     if indices.size < target_samples:
         raise ValueError(
             f"Strobo produced {indices.size} samples, fewer than requested {target_samples}."
         )
+
     return np.ascontiguousarray(data[indices[:target_samples]], dtype=np.complex64)
 
 
-class FFTWPlanCache:
-    def __init__(self, threads: int) -> None:
-        self.threads = threads
-        self._plans = {}
+def get_fftw_plan(plans, n_samples, threads):
+    if n_samples not in plans:
+        in_array = pyfftw.empty_aligned(n_samples, dtype="complex64")
+        out_array = pyfftw.empty_aligned(n_samples, dtype="complex64")
+        fft = pyfftw.FFTW(
+            in_array,
+            out_array,
+            direction="FFTW_FORWARD",
+            threads=threads,
+            flags=("FFTW_ESTIMATE", "FFTW_DESTROY_INPUT"),
+        )
+        plans[n_samples] = in_array, out_array, fft
 
-    def plan(self, n_samples: int):
-        plan = self._plans.get(n_samples)
-        if plan is None:
-            in_array = pyfftw.empty_aligned(n_samples, dtype="complex64")
-            out_array = pyfftw.empty_aligned(n_samples, dtype="complex64")
-            fft_obj = pyfftw.FFTW(
-                in_array,
-                out_array,
-                direction="FFTW_FORWARD",
-                threads=self.threads,
-                flags=("FFTW_ESTIMATE", "FFTW_DESTROY_INPUT"),
-            )
-            plan = (in_array, out_array, fft_obj)
-            self._plans[n_samples] = plan
-        return plan
-
-    def execute(self, data: np.ndarray) -> np.ndarray:
-        in_array, out_array, fft_obj = self.plan(data.size)
-        in_array[:] = data
-        fft_obj()
-        return out_array
+    return plans[n_samples]
 
 
-def time_strobo_fftw(
-    tau: np.ndarray,
-    data: np.ndarray,
-    *,
-    output_rate_hz: float,
-    target_samples: int,
-    fftw_plans: FFTWPlanCache,
-) -> tuple[float, int]:
-    tic = time.perf_counter()
-    strobo_data = strobo_resample(
-        tau,
-        data,
-        output_rate_hz=output_rate_hz,
-        target_samples=target_samples,
-    )
-    fft_out = fftw_plans.execute(strobo_data)
-    _ = np.abs(fft_out).max()
-    return time.perf_counter() - tic, strobo_data.size
+def run_strobo_once(tau, signal, output_rate_hz, target_samples, fftw_plans, threads):
+    start = time.perf_counter()
+    strobo_data = strobo_resample(tau, signal, output_rate_hz, target_samples)
+
+    in_array, out_array, fft = get_fftw_plan(fftw_plans, strobo_data.size, threads)
+    in_array[:] = strobo_data
+    fft()
+    _ = np.abs(out_array).max()
+
+    return time.perf_counter() - start, strobo_data.size
 
 
-def time_nufft(
-    signal: np.ndarray,
-    tau: np.ndarray,
-    *,
-    eps: float,
-    threads: int,
-) -> float:
+def run_nufft_once(signal, tau, eps, threads):
     resampler = Resampler(
         nthreads=threads,
         eps=eps,
@@ -175,42 +129,24 @@ def time_nufft(
     )
     resampler.timeseries = signal
     resampler.resampled_time = tau
-    tic = time.perf_counter()
+
+    start = time.perf_counter()
     resampler.nufft()
     _ = np.abs(resampler.weights).max()
-    return time.perf_counter() - tic
+
+    return time.perf_counter() - start
 
 
-def median_time(values: list[float]) -> float:
+def median(values):
     return float(np.median(np.asarray(values, dtype=float)))
 
 
-def str_to_bool(value: str | bool) -> bool:
-    if isinstance(value, bool):
-        return value
-    lowered = value.lower()
-    if lowered in {"1", "true", "t", "yes", "y", "on"}:
-        return True
-    if lowered in {"0", "false", "f", "no", "n", "off"}:
-        return False
-    raise argparse.ArgumentTypeError(f"Expected a boolean value, got {value!r}.")
-
-
-def is_power_of_two(value: int) -> bool:
-    return value > 0 and (value & (value - 1)) == 0
-
-
-def run_benchmark(
-    *,
-    ratios: tuple[float, ...],
-    repeats: int,
-    nufft_samples: int,
-    f_new_hz: float,
-    threads: int,
-) -> list[BenchmarkRow]:
-    pyfftw.interfaces.cache.enable()
-    if not is_power_of_two(nufft_samples):
+def run_benchmark(ratios, repeats, nufft_samples, f_new_hz, threads):
+    if nufft_samples <= 0 or (nufft_samples & (nufft_samples - 1)) != 0:
         raise ValueError(f"nufft_samples must be a power of two, got {nufft_samples}.")
+
+    pyfftw.interfaces.cache.enable()
+    clear_plan_cache()
 
     beta = pbh_beta(F0_HZ, MC_MSUN)
     nufft_signal, nufft_tau = build_signal(
@@ -219,11 +155,10 @@ def run_benchmark(
         n_samples=nufft_samples,
         sample_rate_hz=f_new_hz,
     )
-    nufft_samples = nufft_signal.size
-    fftw_plans = FFTWPlanCache(threads=threads)
-    rows = []
 
-    clear_plan_cache()
+    rows = []
+    fftw_plans = {}
+
     for f_ratio in ratios:
         eps = 1.0 / f_ratio
         strobo_input_hz = f_new_hz * f_ratio
@@ -235,146 +170,108 @@ def run_benchmark(
             sample_rate_hz=strobo_input_hz,
         )
 
-        # Warm both paths once. This builds FFTW and FINUFFT plans before timing.
-        _, strobo_output_samples = time_strobo_fftw(
+        # Warm both paths once so FFTW and FINUFFT planning is outside timings.
+        _, strobo_output_samples = run_strobo_once(
             strobo_tau,
             strobo_signal,
-            output_rate_hz=f_new_hz,
-            target_samples=nufft_samples,
-            fftw_plans=fftw_plans,
+            f_new_hz,
+            nufft_samples,
+            fftw_plans,
+            threads,
         )
-        time_nufft(nufft_signal, nufft_tau, eps=eps, threads=threads)
+        run_nufft_once(nufft_signal, nufft_tau, eps, threads)
 
         strobo_times = []
         nufft_times = []
         for _ in range(repeats):
-            strobo_time, strobo_output_samples = time_strobo_fftw(
+            strobo_time, strobo_output_samples = run_strobo_once(
                 strobo_tau,
                 strobo_signal,
-                output_rate_hz=f_new_hz,
-                target_samples=nufft_samples,
-                fftw_plans=fftw_plans,
+                f_new_hz,
+                nufft_samples,
+                fftw_plans,
+                threads,
             )
-            nufft_time = time_nufft(
-                nufft_signal,
-                nufft_tau,
-                eps=eps,
-                threads=threads,
-            )
+            nufft_time = run_nufft_once(nufft_signal, nufft_tau, eps, threads)
+
             strobo_times.append(strobo_time)
             nufft_times.append(nufft_time)
 
-        rows.append(
-            BenchmarkRow(
-                f_ratio=f_ratio,
-                strobo_input_hz=strobo_input_hz,
-                eps=eps,
-                strobo_samples=strobo_signal.size,
-                strobo_output_samples=strobo_output_samples,
-                nufft_samples=nufft_samples,
-                strobo_seconds=median_time(strobo_times),
-                nufft_seconds=median_time(nufft_times),
-            )
-        )
+        strobo_seconds = median(strobo_times)
+        nufft_seconds = median(nufft_times)
+        speedup = strobo_seconds / nufft_seconds
+
+        row = {
+            "f_ratio": f_ratio,
+            "strobo_input_hz": strobo_input_hz,
+            "eps": eps,
+            "strobo_samples": strobo_signal.size,
+            "strobo_output_samples": strobo_output_samples,
+            "nufft_samples": nufft_signal.size,
+            "strobo_seconds": strobo_seconds,
+            "nufft_seconds": nufft_seconds,
+            "nufft_speedup": speedup,
+        }
+        rows.append(row)
 
         print(
             f"f_ratio={f_ratio:>8.3g}: "
-            f"strobo={rows[-1].strobo_seconds:.4f}s, "
-            f"nufft={rows[-1].nufft_seconds:.4f}s, "
-            f"speedup={rows[-1].nufft_speedup:.2f}x"
+            f"strobo={strobo_seconds:.4f}s, "
+            f"nufft={nufft_seconds:.4f}s, "
+            f"speedup={speedup:.2f}x"
         )
 
     return rows
 
 
-def save_csv(rows: list[BenchmarkRow], output_path: Path) -> None:
+def save_csv(rows, output_path):
     with output_path.open("w", newline="") as f:
-        writer = csv.DictWriter(
-            f,
-            fieldnames=[
-                "f_ratio",
-                "strobo_input_hz",
-                "eps",
-                "strobo_samples",
-                "strobo_output_samples",
-                "nufft_samples",
-                "strobo_seconds",
-                "nufft_seconds",
-                "nufft_speedup",
-            ],
-        )
+        writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
         writer.writeheader()
-        for row in rows:
-            writer.writerow(
+        writer.writerows(rows)
+
+
+def load_csv(input_path):
+    rows = []
+
+    with input_path.open(newline="") as f:
+        for row in csv.DictReader(f):
+            rows.append(
                 {
-                    "f_ratio": row.f_ratio,
-                    "strobo_input_hz": row.strobo_input_hz,
-                    "eps": row.eps,
-                    "strobo_samples": row.strobo_samples,
-                    "strobo_output_samples": row.strobo_output_samples,
-                    "nufft_samples": row.nufft_samples,
-                    "strobo_seconds": row.strobo_seconds,
-                    "nufft_seconds": row.nufft_seconds,
-                    "nufft_speedup": row.nufft_speedup,
+                    "f_ratio": float(row["f_ratio"]),
+                    "strobo_input_hz": float(row["strobo_input_hz"]),
+                    "eps": float(row["eps"]),
+                    "strobo_samples": int(row["strobo_samples"]),
+                    "strobo_output_samples": int(row["strobo_output_samples"]),
+                    "nufft_samples": int(row["nufft_samples"]),
+                    "strobo_seconds": float(row["strobo_seconds"]),
+                    "nufft_seconds": float(row["nufft_seconds"]),
+                    "nufft_speedup": float(row["nufft_speedup"]),
                 }
             )
 
-
-def load_csv(input_path: Path) -> list[BenchmarkRow]:
-    rows = []
-    with input_path.open(newline="") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            rows.append(
-                BenchmarkRow(
-                    f_ratio=float(row["f_ratio"]),
-                    strobo_input_hz=float(row["strobo_input_hz"]),
-                    eps=float(row["eps"]),
-                    strobo_samples=int(row["strobo_samples"]),
-                    strobo_output_samples=int(row["strobo_output_samples"]),
-                    nufft_samples=int(row["nufft_samples"]),
-                    strobo_seconds=float(row["strobo_seconds"]),
-                    nufft_seconds=float(row["nufft_seconds"]),
-                )
-            )
     if not rows:
         raise ValueError(f"No benchmark rows found in {input_path}.")
+
     return rows
 
 
-def infer_f_new_hz(rows: list[BenchmarkRow]) -> float:
-    f_new_values = np.asarray(
-        [row.strobo_input_hz / row.f_ratio for row in rows], dtype=float
-    )
-    return float(np.median(f_new_values))
+def save_plot(rows, output_path):
+    ratios = np.asarray([row["f_ratio"] for row in rows], dtype=float)
+    speedups = np.asarray([row["nufft_speedup"] for row in rows], dtype=float)
 
+    fig, ax = plt.subplots(figsize=(7.0, 4.4), constrained_layout=True)
+    ax.semilogx(ratios, speedups, "o-", color="tab:blue", lw=1.8)
+    ax.axhline(1.0, color="black", lw=1.0, ls="--", alpha=0.7)
+    ax.set_xlabel("Upsampling ratio")
+    ax.set_ylabel("NUFFT / stroboscopic speedup")
+    ax.grid(True, alpha=0.25)
 
-def save_plot(
-    rows: list[BenchmarkRow],
-    output_path: Path,
-    *,
-    nufft_samples: int,
-    f_new_hz: float,
-) -> None:
-    ratios = np.asarray([row.f_ratio for row in rows], dtype=float)
-    speedups = np.asarray([row.nufft_speedup for row in rows], dtype=float)
-
-    fig, ax_speed = plt.subplots(figsize=(7.0, 4.4), constrained_layout=True)
-    ax_speed.semilogx(ratios, speedups, "o-", color="tab:blue", lw=1.8)
-    ax_speed.axhline(1.0, color="black", lw=1.0, ls="--", alpha=0.7)
-    ax_speed.set_xlabel("Upsampling ratio")
-    ax_speed.set_ylabel("NUFFT / stroboscopic speedup")
-    ax_speed.grid(True, alpha=0.25)
-    # ax_speed.set_title(
-    #     rf"$M_c={MC_MSUN:.0e}M_\odot$, $f_0={F0_HZ:g}$ Hz, "
-    #     rf"$T_\mathrm{{obs}}={nufft_samples / f_new_hz:g}$ s, "
-    #     rf"$N_\mathrm{{NUFFT}}=2^{{{int(np.log2(nufft_samples))}}}$"
-    # )
     fig.savefig(output_path, dpi=220)
     plt.close(fig)
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args():
     parser = argparse.ArgumentParser(
         description="Benchmark stroboscopic pyFFTW resampling against the Nov2025 FINUFFT resampler."
     )
@@ -391,20 +288,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--threads", type=int, default=THREADS)
     parser.add_argument(
         "--load",
-        type=str_to_bool,
-        nargs="?",
-        const=True,
-        default=False,
-        help=(
-            "Load benchmark rows from figs/strobo_vs_nufft_speedup.csv and only "
-            "regenerate the plot. Accepts true/false; passing --load alone means true."
-        ),
+        action="store_true",
+        help="Load figs/strobo_vs_nufft_speedup.csv and only regenerate the plot.",
     )
     return parser.parse_args()
 
 
-def main() -> None:
+def main():
     args = parse_args()
+
     output_dir = Path(__file__).resolve().parent / "figs"
     output_dir.mkdir(exist_ok=True)
     csv_path = output_dir / "strobo_vs_nufft_speedup.csv"
@@ -412,29 +304,19 @@ def main() -> None:
 
     if args.load:
         rows = load_csv(csv_path)
-        plot_nufft_samples = rows[0].nufft_samples
-        plot_f_new_hz = infer_f_new_hz(rows)
         print(f"Loaded {csv_path}")
     else:
         rows = run_benchmark(
-            ratios=tuple(args.ratios),
+            ratios=args.ratios,
             repeats=args.repeats,
             nufft_samples=args.nufft_samples,
             f_new_hz=args.f_new,
             threads=args.threads,
         )
         save_csv(rows, csv_path)
-        plot_nufft_samples = args.nufft_samples
-        plot_f_new_hz = args.f_new
         print(f"Saved {csv_path}")
 
-    save_plot(
-        rows,
-        plot_path,
-        nufft_samples=plot_nufft_samples,
-        f_new_hz=plot_f_new_hz,
-    )
-
+    save_plot(rows, plot_path)
     print(f"Saved {plot_path}")
 
 

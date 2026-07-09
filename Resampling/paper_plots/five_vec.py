@@ -19,7 +19,7 @@ class five_vec(object):
         
     def compute_A(self, omega_t) -> None:
         """
-        omega_t is Greenwich mean sidereal time in rad
+        omega_t is Greenwich mean sidereal time in rad.
         """
         c_dec=np.cos(self.dec)
         c_lat=np.cos(self.lat)
@@ -48,10 +48,13 @@ class five_vec(object):
         A_c = np.empty((5), dtype=complex)
         al=np.exp(-1j*(self.ra-self.lng)) #=e^{-j(\alpha-\beta)} in Eq.(17)-(18)
         
-        scalar_Aplus = a0+a1c*np.cos(omega_t)+a1s*np.sin(omega_t)+\
-                a2c*np.cos(2*omega_t)+a2s*np.sin(2*omega_t)
-        scalar_Across = b1c*np.cos(omega_t)+b1s*np.sin(omega_t)+\
-                b2c*np.cos(2*omega_t)+b2s*np.sin(2*omega_t)
+        # The analytic scalar modulation is written in the source hour-angle
+        # phase. Public callers pass raw GMST, matching LAL's convention.
+        hour_angle = omega_t + self.lng - self.ra
+        scalar_Aplus = a0+a1c*np.cos(hour_angle)+a1s*np.sin(hour_angle)+\
+                a2c*np.cos(2*hour_angle)+a2s*np.sin(2*hour_angle)
+        scalar_Across = b1c*np.cos(hour_angle)+b1s*np.sin(hour_angle)+\
+                b2c*np.cos(2*hour_angle)+b2s*np.sin(2*hour_angle)
         self.scalar_Aplus = scalar_Aplus
         self.scalar_Across = scalar_Across
         self.amp_modulation = scalar_Aplus*self.H_p+scalar_Across*self.H_c
