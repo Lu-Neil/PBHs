@@ -193,7 +193,8 @@ def main():
         chirp_power,
         duration,
         chunk_duration=args.chunk_duration,
-        lambda_thresh=args.lambda_threshold,
+        false_alarm_probability=args.false_alarm_probability,
+        detection_probability=args.detection_probability,
         mismatch_bank=0.0,
         mismatch_coh=0.0,
     )

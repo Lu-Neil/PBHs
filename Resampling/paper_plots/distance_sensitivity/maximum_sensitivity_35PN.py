@@ -252,7 +252,7 @@ def power_at_distance(
 # %%
 def main():
     fspace = np.linspace(20, 200, 51)
-    Mspace = np.logspace(-5, 1, 49)
+    Mspace = np.logspace(-5, -1, 49)
     fgrid, Mgrid = np.meshgrid(fspace, Mspace)
 
     tMax_grid = np.empty_like(fgrid)

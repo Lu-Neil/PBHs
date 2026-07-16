@@ -15,12 +15,15 @@
 # %%
 from pathlib import Path
 import sys
+from functools import lru_cache
 
 import matplotlib as mpl
 from matplotlib.lines import Line2D
 import numpy as np
 import matplotlib.pyplot as pl
 from scipy import interpolate, integrate
+from scipy.optimize import brentq
+from scipy.stats import chi2, ncx2
 
 SCRIPT_DIR = Path(__file__).resolve().parent if "__file__" in globals() else Path.cwd()
 PAPER_PLOTS_DIR = SCRIPT_DIR.parent
@@ -41,12 +44,15 @@ PARSEC_M = 3e16
 GALACTIC_CENTER_PC = 8000
 ANDROMEDA_PC = 7.65e5
 
-F_START = 40
-F_END = 120
+F_END = 2000
+PLOT_F_START = 40
+PLOT_F_END = 120
 MAX_OBS_TIME = 3e7
 CHUNK_DURATION = 30.0
 LOG_M_LOWER = -5
 LOG_M_UPPER = -1
+DEFAULT_FALSE_ALARM_PROBABILITY = 1.0e-6
+DEFAULT_DETECTION_PROBABILITY = 0.95
 
 # %%
 ASD_PATH = SCRIPT_DIR.parents[1] / "asd.txt"
@@ -76,26 +82,138 @@ def semicoherent_chunk_count_grid(signal_duration_grid, chunk_duration=CHUNK_DUR
     )
 
 
-def apply_semicoherent_chunk_penalty(sensitivity_grid, chunk_count_grid):
-    """Reduce sensitivity by the semicoherent combination factor M^(-1/4)."""
-    return sensitivity_grid / np.asarray(chunk_count_grid) ** (1 / 4)
+@lru_cache(maxsize=None)
+def _semicoherent_noncentrality_threshold_cached(
+    n_coh,
+    false_alarm_probability,
+    detection_probability,
+):
+    dof = 2 * n_coh
+    statistic_threshold = chi2.isf(false_alarm_probability, dof)
+
+    def detection_probability_error(noncentrality):
+        return (
+            ncx2.sf(statistic_threshold, dof, noncentrality)
+            - detection_probability
+        )
+
+    high = max(1.0, statistic_threshold)
+    while detection_probability_error(high) < 0.0:
+        high *= 2.0
+
+    return float(brentq(detection_probability_error, 0.0, high))
+
+
+def semicoherent_noncentrality_threshold(
+    n_coh,
+    false_alarm_probability=DEFAULT_FALSE_ALARM_PROBABILITY,
+    detection_probability=DEFAULT_DETECTION_PROBABILITY,
+):
+    """Return Lambda required for p_det at fixed p_FA for N coherent chunks."""
+    n_coh_int = int(n_coh)
+    if n_coh_int != n_coh:
+        raise ValueError("n_coh must be an integer")
+    if n_coh_int < 1:
+        raise ValueError("n_coh must be positive")
+    if not 0.0 < false_alarm_probability < 1.0:
+        raise ValueError("false_alarm_probability must be in (0, 1)")
+    if not 0.0 < detection_probability < 1.0:
+        raise ValueError("detection_probability must be in (0, 1)")
+    if detection_probability <= false_alarm_probability:
+        raise ValueError("detection_probability must exceed false_alarm_probability")
+
+    return _semicoherent_noncentrality_threshold_cached(
+        n_coh_int,
+        float(false_alarm_probability),
+        float(detection_probability),
+    )
+
+
+def semicoherent_penalty_factor(
+    chunk_count_grid,
+    false_alarm_probability=DEFAULT_FALSE_ALARM_PROBABILITY,
+    detection_probability=DEFAULT_DETECTION_PROBABILITY,
+):
+    """Return sqrt(Lambda_thresh(1) / Lambda_thresh(N_coh))."""
+    chunk_count_grid = np.asarray(chunk_count_grid)
+    if np.any(~np.isfinite(chunk_count_grid)):
+        raise ValueError("chunk counts must be finite")
+    if np.any(chunk_count_grid != np.floor(chunk_count_grid)):
+        raise ValueError("chunk counts must be integers")
+    if np.any(chunk_count_grid < 1):
+        raise ValueError("chunk counts must be positive")
+
+    unique_counts, inverse = np.unique(
+        chunk_count_grid.astype(np.int64),
+        return_inverse=True,
+    )
+    coherent_lambda_thresh = semicoherent_noncentrality_threshold(
+        1,
+        false_alarm_probability=false_alarm_probability,
+        detection_probability=detection_probability,
+    )
+    thresholds = np.array(
+        [
+            semicoherent_noncentrality_threshold(
+                n_coh,
+                false_alarm_probability=false_alarm_probability,
+                detection_probability=detection_probability,
+            )
+            for n_coh in unique_counts
+        ],
+        dtype=float,
+    )
+    penalty = np.sqrt(coherent_lambda_thresh / thresholds)
+    return penalty[inverse].reshape(chunk_count_grid.shape)
+
+
+def apply_semicoherent_chunk_penalty(
+    sensitivity_grid,
+    chunk_count_grid,
+    false_alarm_probability=DEFAULT_FALSE_ALARM_PROBABILITY,
+    detection_probability=DEFAULT_DETECTION_PROBABILITY,
+):
+    """Reduce sensitivity by the noncentral-chi-square semicoherent penalty."""
+    return sensitivity_grid * semicoherent_penalty_factor(
+        chunk_count_grid,
+        false_alarm_probability=false_alarm_probability,
+        detection_probability=detection_probability,
+    )
 
 
 def semicoherent_distance_sensitivity(
     f0,
     Mc,
-    integration,
-    duration,
+    integration=None,
+    duration=None,
     chunk_duration=CHUNK_DURATION,
-    lambda_thresh=47.0,
+    f_end=None,
+    false_alarm_probability=DEFAULT_FALSE_ALARM_PROBABILITY,
+    detection_probability=DEFAULT_DETECTION_PROBABILITY,
     mismatch_bank=0.05,
     mismatch_coh=0.1,
 ):
-    """Return d_sc = |C|^-1/4 sqrt((1-mu_max)(1-M_coh)) d_opt."""
+    """Return d_sc = P(|C|) sqrt((1-mu_max)(1-M_coh)) d_opt."""
     if not 0.0 <= mismatch_bank < 1.0:
         raise ValueError("mismatch_bank must be in [0, 1)")
     if not 0.0 <= mismatch_coh < 1.0:
         raise ValueError("mismatch_coh must be in [0, 1)")
+
+    # f_end is the semicoherent band endpoint. If it is provided, only the
+    # power accumulated from f0 to f_end enters this semicoherent sensitivity.
+    # If omitted, callers may provide precomputed integration/duration values;
+    # otherwise the hard-coded physical endpoint F_END is used.
+    if f_end is not None or integration is None or duration is None:
+        endpoint = F_END if f_end is None else f_end
+        beta = beta_calc(f0, Mc)
+        duration = np.minimum(time_to_frequency(f0, endpoint, beta), MAX_OBS_TIME)
+        integration = integrated_chirp_power(duration, f0, beta)
+
+    lambda_thresh = semicoherent_noncentrality_threshold(
+        1,
+        false_alarm_probability=false_alarm_probability,
+        detection_probability=detection_probability,
+    )
 
     coherent_sensitivity = coherent_distance_sensitivity(
         f0,
@@ -108,6 +226,8 @@ def semicoherent_distance_sensitivity(
     return mismatch_factor * apply_semicoherent_chunk_penalty(
         coherent_sensitivity,
         chunk_count,
+        false_alarm_probability=false_alarm_probability,
+        detection_probability=detection_probability,
     )
 
 
@@ -126,7 +246,7 @@ def time_to_frequency(f0, f_end, beta):
 
 
 # %%
-fspace = np.linspace(F_START, F_END, 51, endpoint=False)
+fspace = np.linspace(PLOT_F_START, PLOT_F_END, 51)
 Mspace = np.logspace(LOG_M_LOWER, LOG_M_UPPER, 49)
 fgrid, Mgrid = np.meshgrid(fspace, Mspace)
 
@@ -238,6 +358,7 @@ def main():
         )
         ax.set_title(title)
         ax.set_xlabel("Initial frequency (Hz)")
+        ax.set_xlim(PLOT_F_START, PLOT_F_END)
 
     axes[0].set_ylabel(r"$log(M_c/M_\odot$)")
     fig.colorbar(contour, ax=axes, label=r"log(Distance Sensitivity / pc)")
@@ -246,7 +367,7 @@ def main():
     line1 = Line2D([0], [0], label="Andromeda", color="darkorange", ls="--")
     axes[0].legend(handles=[line0, line1])
     fig.savefig(
-        FIG_DIR / f"distance_sensitivity_f={F_START}-{F_END}.png",
+        FIG_DIR / f"distance_sensitivity_f={PLOT_F_START}-{PLOT_F_END}.png",
         bbox_inches="tight",
     )
 

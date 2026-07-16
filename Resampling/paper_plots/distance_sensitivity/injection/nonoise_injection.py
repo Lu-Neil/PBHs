@@ -73,8 +73,8 @@ DEFAULTS = {
 }
 
 DEFAULT_N_DISTANCES = 20
-DEFAULT_MIN_DISTANCE_RATIO = 0.5
-DEFAULT_MAX_DISTANCE_RATIO = 2.0
+DEFAULT_MIN_DISTANCE_RATIO = 0.1
+DEFAULT_MAX_DISTANCE_RATIO = 100.0
 DEFAULT_FALSE_ALARM_PROBABILITY = 1.0e-6
 DEFAULT_DETECTION_PROBABILITY = 0.95
 
@@ -508,7 +508,8 @@ def main():
         chirp_power,
         duration,
         chunk_duration=args.chunk_duration,
-        lambda_thresh=args.lambda_threshold,
+        false_alarm_probability=args.false_alarm_probability,
+        detection_probability=args.detection_probability,
         mismatch_bank=0.0,
         mismatch_coh=0.0,
     )

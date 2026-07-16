@@ -22,3 +22,4 @@ legend.handlelength : 2
 legend.loc         : best
 savefig.dpi        : 600
 pdf.compression    : 9
+axes.prop_cycle: cycler("color", ["#D60606", "#0083DE", "#00BA75", "#FFC61E", "#A433B3", "#FD882E"])
