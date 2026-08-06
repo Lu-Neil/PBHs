@@ -15,8 +15,8 @@ if str(PAPER_PLOTS_DIR) not in sys.path:
 from distance_sensitivity.injection import nonoise_injection as base  # noqa: E402
 
 
-OUTPUT_PATH = base.SCRIPT_DIR / "semicoherent_track_injection_colored_noise.png"
-Z_DISTANCE_OUTPUT_PATH = base.SCRIPT_DIR / "z_vs_distance_colored_noise.png"
+OUTPUT_PATH = base.FIGS_DIR / "semicoherent_track_injection_colored_noise.png"
+Z_DISTANCE_OUTPUT_PATH = base.FIGS_DIR / "z_vs_distance_colored_noise.png"
 
 
 def parse_args():

@@ -1,160 +1,189 @@
+schema_version: 2
+
 global_rules:
-  - Treat idea.md as the source of truth.
-  - Distinguish established results from conjectures.
-  - Do not invent citations.
+  - Treat idea.md and explicit human feedback as the scientific source of truth.
+  - Distinguish established results, new derivations, assumptions, conjectures, and open questions.
+  - Never invent citations, commands, numerical results, tests, or completed work.
   - Mark uncertain claims explicitly.
-  - Every output must be written as an auditable artifact.
-  - Each retry must address concrete validator or critic feedback.
-  - Stop retrying after max_attempts.
-  - Run scripts with `conda run -n PBH python ...`
+  - Preserve failures and negative results as auditable evidence.
+  - Internal resampler frequencies are normally angular frequencies in radians per second; distinguish them explicitly from Hz.
+  - The 5-vector model uses the carrier and four sidereal sidebands.
+  - Run project Python commands through `conda run -n PBH`.
+
+runtime:
+  command_prefix:
+    - conda
+    - run
+    - -n
+    - PBH
+  scratch_root: /tmp
+  codex_timeout_seconds: 1800
+  codex_sandbox: workspace-write
+
+validation:
+  mode: hybrid
+
+defaults:
+  retry:
+    enabled: true
+    min_attempts: 1
+    max_attempts: 3
+  planning:
+    enabled: true
+    instructions:
+      - Identify the artifact's core claims, derivations, evidence, or experiment questions before drafting.
+      - List assumptions, likely failure modes, and checks that would catch shallow or incorrect work.
+      - On retries, respond to each failed validator with a concrete change.
 
 pipeline:
   order:
     - planner
     - literature
     - theory_and_optimization
+    - numerical_experiment
+    - results_analysis
     - referee
 
-ralph_loop_defaults:
-  enabled: true
-  min_attempts: 2
-  max_attempts: 3
-  fresh_context_each_attempt: true
-  preserve_between_attempts:
-    - idea.md
-    - previous_output
-    - validator_feedback
-    - critic_feedback
-  stop_conditions:
-    - validator_passed_after_min_attempts
-    - max_attempts_reached
-  on_failure:
-    write_failure_report: true
-
-planning_pass_defaults:
-  enabled: true
-  instructions:
-    - Identify the artifact's core claims, derivations, or literature questions before drafting.
-    - List assumptions, likely failure modes, and checks that would catch shallow reasoning.
-    - Outline the artifact structure and note which sections need the most technical depth.
-    - On refinement attempts, identify concrete improvements to the existing output.
-
-agents:
-
+tasks:
   planner:
-    purpose: >
-      Turn idea.md into a concrete research plan.
-    output: outputs/00_research_plan.md
-    ralph_loop:
-      enabled: true
-      min_attempts: 2
-      max_attempts: 2
-      validators:
-        - outputs all required sections
-        - identifies the central optimization problem
-        - separates literature, theory, simulation, and cost tasks
+    kind: planning
+    purpose: Turn idea.md and human feedback into an executable research plan with falsifiable decisions.
+    depends_on: []
+    outputs:
+      - path: 00_research_plan.md
+        description: Executable research plan and decision criteria.
+        required: true
+        primary: true
+        kind: markdown
+    validators:
+      - name: plan_completeness
+        type: artifact_completeness
+        options:
+          minimum_chars: 1800
+      - name: plan_research_value
+        type: research_value
+        options:
+          required_concepts:
+            - central question
+            - decisive test
+            - next steps
+            - unresolved
+      - name: plan_semantic_review
+        type: codex_rubric
+        options:
+          criteria:
+            - The central dimension-selection problem is stated as a falsifiable optimization problem.
+            - Literature, derivation, numerical experiment, sensitivity, and computational-cost work are separated.
+            - Every major research question has a proposed test or deliverable.
+            - Assumptions and likely bottlenecks are explicit.
     must_include:
       - central research question
       - subquestions
       - required derivations
       - required literature searches
-      - required simulations
+      - required numerical experiments
+      - sensitivity versus computational cost
+      - decisive tests
       - likely bottlenecks
       - proposed report structure
+    on_failure: stop
 
   literature:
-    purpose: >
-      Find related work and determine whether this problem has already been
-      studied under another name.
-    output: outputs/01_literature_review.md
-    secondary_output: outputs/papers_to_add_to_zotero.md
-    can_call:
-      - paper_analyzer
-    call_when:
-      - a specific paper, preprint, DOI, arXiv ID, PDF, or citation is provided
-      - the literature review needs detailed evidence from a paper rather than a citation-level summary
-      - another agent needs paper-specific claims, equations, assumptions, limitations, or comparison points
-    ralph_loop:
-      enabled: true
-      min_attempts: 2
-      max_attempts: 3
-      validators:
-        - includes all related techniques from idea.md
-        - separates GW literature from general signal-processing literature
-        - marks unsupported novelty claims
-        - produces a list of missing citations
-        - does not invent papers
+    kind: literature
+    purpose: Find and verify related work, identify equivalent formulations, and establish novelty risks.
+    depends_on:
+      - planner
+    outputs:
+      - path: 01_literature_review.md
+        description: Evidence-backed literature synthesis.
+        required: true
+        primary: true
+        kind: markdown
+      - path: papers_to_add_to_zotero.md
+        description: Verified papers absent from the known local collection, with DOI, arXiv ID, or URL.
+        required: true
+        primary: false
+        kind: markdown
+    validators:
+      - name: literature_outputs
+        type: artifact_completeness
+        options:
+          minimum_chars: 2200
+      - name: citation_structure
+        type: citation_sanity
+        options:
+          minimum_reference_markers: 8
+      - name: literature_semantic_review
+        type: codex_rubric
+        options:
+          criteria:
+            - Every substantive claim about prior work is connected to a verifiable source.
+            - GW literature and general signal-processing literature are distinguished.
+            - The review covers every named method in the task requirements.
+            - Novelty claims are hedged and conflicts with prior work are explicit.
+            - The Zotero candidate artifact contains only identifiable publications.
     must_include:
       - StackSlide
       - PowerFlux
       - Weave
       - MBTA
       - reduced order quadrature
-      - PCA / dimensionality reduction
+      - PCA or dimensionality reduction
       - semicoherent template metrics
+      - polynomial phase or chirp transforms
       - relevant signal-processing analogues
       - novelty risks
-
-  paper_analyzer:
-    purpose: >
-      Read a given paper in detail and produce an auditable synthesis that other
-      agents can use during the literature review and later theory/referee
-      phases.
-    activation: >
-      Invoke when given a paper, preprint, DOI, arXiv ID, PDF path, URL, or
-      citation that requires detailed analysis.
-    output: outputs/paper_analyses/{paper_slug}.md
-    callable_by:
-      - literature
-      - theory_and_optimization
-      - referee
-    ralph_loop:
-      enabled: true
-      min_attempts: 1
-      max_attempts: 2
-      validators:
-        - identifies bibliographic metadata and paper scope
-        - cites specific sections, equations, figures, tables, or page numbers
-        - separates the paper's claims from the agent's interpretation
-        - extracts assumptions, limitations, and applicability to idea.md
-        - flags uncertain readings rather than overclaiming
-        - does not invent results or citations
-    must_include:
-      - bibliographic metadata
-      - paper objective and scope
-      - methods and key assumptions
-      - main results
-      - equations, figures, tables, or sections relevant to the current project
-      - relationship to idea.md
-      - reusable takeaways for other agents
-      - novelty risks or conflicts with the proposed work
-      - limitations and caveats
-      - citation targets to add to the literature review
-    instructions:
-      - Read the paper closely before summarizing.
-      - Reference specific locations in the paper for every technical claim.
-      - Quote sparingly and only when exact wording matters.
-      - Prefer section, equation, figure, table, theorem, algorithm, and page references over vague attribution.
-      - Mark whether each takeaway is established by the paper, inferred from the paper, or speculative.
-      - Do not use the paper analysis as a substitute for checking adjacent literature.
+    rules:
+      - Use DOI, arXiv identifiers, or direct source URLs wherever possible.
+      - Reference paper sections, equations, figures, tables, or page numbers for technical claims when the source is available.
+      - Label citation-level knowledge separately from close reading.
+    on_failure: stop
 
   theory_and_optimization:
-    purpose: >
-      Develop the mathematical formalism and analyze how to choose zeta and
-      T_coh optimally.
-    output: outputs/02_theory_and_optimization.md
-    ralph_loop:
-      enabled: true
-      min_attempts: 2
-      max_attempts: 4
-      validators:
-        - defines theta and zeta clearly
-        - gives a semicoherent statistic
-        - states the null distribution or says why it is not yet known
-        - states signal expectation or required assumptions
-        - includes a cost-versus-sensitivity objective
-        - includes the ordinary time-frequency stack-slide limit
-        - flags conjectural steps
+    kind: theory
+    purpose: Develop the mathematical formalism and a costed rule for choosing zeta and coherent duration.
+    depends_on:
+      - planner
+      - literature
+    outputs:
+      - path: 02_theory_and_optimization.md
+        description: Mathematical derivation and optimization framework.
+        required: true
+        primary: true
+        kind: markdown
+    validators:
+      - name: theory_completeness
+        type: artifact_completeness
+        options:
+          minimum_chars: 3000
+      - name: deterministic_math_checks
+        type: mathematical_sanity
+        options:
+          frequency_units: true
+          required_concepts:
+            - assumptions
+            - dimensions or units
+            - null distribution
+            - signal expectation
+            - limiting case
+            - open questions
+      - name: theory_research_value
+        type: research_value
+        options:
+          required_concepts:
+            - conclusion
+            - decisive test
+            - next steps
+            - unresolved
+      - name: theory_semantic_review
+        type: codex_rubric
+        options:
+          criteria:
+            - Every symbol is defined before use and frequency units are unambiguous.
+            - The coherent and semicoherent statistics, null distribution, signal expectation, and weights are mutually consistent.
+            - At least one limiting case reduces to ordinary frequency-time StackSlide.
+            - The dimension-selection rule includes mismatch, trials factor, runtime, and memory rather than SVD variance alone.
+            - Established equations are separated from new derivations and conjectures.
     must_include:
       - signal parameters theta
       - spectral coordinates zeta
@@ -164,60 +193,203 @@ agents:
       - weights
       - null distribution
       - signal expectation
-      - residual phase / mismatch criterion
-      - sensitivity versus computational-cost tradeoff
-      - limiting case reducing to ordinary stack-slide
+      - residual phase or mismatch criterion
+      - sensitivity versus computational-cost objective
+      - rule for choosing the number of zeta dimensions
+      - limiting case reducing to ordinary StackSlide
+      - equal-mass non-spinning 3.5PN case
+      - equal-mass spinning case up to chi 0.2
+    cautions:
+      - Do not conflate an SVD approximation dimension with the number of searched coordinates.
+      - Include the NUFFT noise transfer and 5-vector covariance as unresolved effects where applicable.
+    retry:
+      enabled: true
+      min_attempts: 1
+      max_attempts: 4
+    on_failure: stop
+
+  numerical_experiment:
+    kind: experiment
+    purpose: Execute a reproducible comparison of candidate coherent-coordinate models and measure approximation, sensitivity, and computational-cost proxies.
+    depends_on:
+      - theory_and_optimization
+    outputs:
+      - path: 03_numerical_experiment.md
+        description: What was run, results, failures, and immediate interpretation.
+        required: true
+        primary: true
+        kind: markdown
+      - path: experiment/dimension_study.py
+        description: Reproducible experiment script.
+        required: true
+        primary: false
+        kind: python
+      - path: experiment/parameters.json
+        description: Parameter ranges, environment details, and random seeds.
+        required: true
+        primary: false
+        kind: json
+      - path: experiment/results.csv
+        description: Machine-readable comparison results.
+        required: true
+        primary: false
+        kind: csv
+      - path: experiment/commands.log
+        description: Exact commands executed.
+        required: true
+        primary: false
+        kind: log
+      - path: experiment/stdout.log
+        description: Preserved stdout, stderr, warnings, and failures.
+        required: true
+        primary: false
+        kind: log
+      - path: experiment/sensitivity_vs_cost.png
+        description: Decisive comparison plot, or a clearly labelled diagnostic plot if the full comparison fails.
+        required: true
+        primary: false
+        kind: plot
+    validators:
+      - name: experiment_outputs
+        type: artifact_completeness
+        options:
+          minimum_chars: 1800
+      - name: experiment_file_integrity
+        type: experiment_artifacts
+        options:
+          report_concepts:
+            - commands
+            - parameters
+            - random seed
+            - results
+            - failures
+            - warnings
+      - name: experiment_semantic_review
+        type: codex_rubric
+        options:
+          criteria:
+            - The declared experiment was actually executed and exact commands and failures are preserved.
+            - Parameters, random seeds, waveform assumptions, and software environment are recorded.
+            - Results compare frequency-only, 0PN, and SVD/PCA candidates; omissions are explicit failures rather than invented values.
+            - Equal-mass non-spinning and chi up to 0.2 spinning cases are either measured or clearly marked as incomplete.
+            - Sensitivity and computational cost are not replaced by basis overlap alone.
+    must_include:
+      - executed commands
+      - parameters and random seeds
+      - frequency-only baseline
+      - 0PN coordinate model
+      - SVD or PCA coordinate model
+      - equal-mass non-spinning 3.5PN waveforms
+      - spinning waveforms up to chi 0.2
+      - approximation or mismatch measurement
+      - sensitivity proxy
+      - runtime and memory proxy
+      - failures and warnings
+    rules:
+      - Start with a bounded experiment that can finish within one agent attempt.
+      - Reuse existing repository implementations where reliable, but do not modify them.
+      - If a full waveform study is infeasible, execute the largest defensible subset and preserve the limitation.
+      - Do not treat generated placeholder values as measurements.
+    retry:
+      enabled: true
+      min_attempts: 1
+      max_attempts: 3
+    on_failure: stop
+
+  results_analysis:
+    kind: analysis
+    purpose: Interpret the numerical artifacts against the theoretical decision rule without overstating incomplete results.
+    depends_on:
+      - theory_and_optimization
+      - numerical_experiment
+    outputs:
+      - path: 04_results_analysis.md
+        description: Evidence-linked comparison and scientific interpretation.
+        required: true
+        primary: true
+        kind: markdown
+    validators:
+      - name: analysis_completeness
+        type: artifact_completeness
+        options:
+          minimum_chars: 1800
+      - name: analysis_research_value
+        type: research_value
+        options:
+          required_concepts:
+            - conclusion
+            - decisive test
+            - next steps
+            - unresolved
+      - name: analysis_semantic_review
+        type: codex_rubric
+        options:
+          criteria:
+            - Each numerical conclusion points to a measured result or preserved failure.
+            - Approximation quality, sensitivity, trials factor, runtime, and memory are distinguished.
+            - Non-spinning and spinning conclusions are separated.
+            - The analysis states whether another zeta dimension is justified under the declared decision rule.
+    must_include:
+      - measured results
+      - comparison with theoretical prediction
+      - approximation quality
+      - sensitivity versus cost
+      - equal-mass non-spinning conclusion
+      - spinning conclusion
+      - limitations
+      - decision about zeta dimension
+      - next decisive experiment
+    on_failure: stop
 
   referee:
-    purpose: >
-      Criticize the idea like a skeptical reviewer.
-    output: outputs/03_referee_report.md
-    ralph_loop:
-      enabled: true
-      min_attempts: 2
-      max_attempts: 2
-      validators:
-        - gives concrete objections rather than vague criticism
-        - identifies decisive tests
-        - identifies novelty risks
-        - checks whether this is just matched filtering in disguise
+    kind: referee
+    purpose: Attempt to falsify the theory, experiment, and claimed conclusions as a skeptical scientific reviewer.
+    depends_on:
+      - literature
+      - theory_and_optimization
+      - numerical_experiment
+      - results_analysis
+    outputs:
+      - path: 05_referee_report.md
+        description: Prioritized objections and decisive tests tied to artifacts.
+        required: true
+        primary: true
+        kind: markdown
+    validators:
+      - name: referee_completeness
+        type: artifact_completeness
+        options:
+          minimum_chars: 1800
+      - name: referee_structure
+        type: referee_quality
+        options:
+          minimum_concrete_items: 6
+          required_concepts:
+            - objection
+            - decisive test
+            - severity
+            - artifact
+            - recommendation
+      - name: referee_semantic_review
+        type: codex_rubric
+        options:
+          criteria:
+            - Objections cite specific claims, equations, commands, plots, tables, or missing artifacts.
+            - Every major objection includes a severity and a decisive resolving test.
+            - Normalization, units, noise transfer, covariance, trials factors, runtime, and memory are examined.
+            - The review distinguishes a new cost-sensitivity tradeoff from matched filtering or known semicoherent methods.
     must_include:
       - strongest objections
+      - severity and affected artifact for each objection
+      - decisive tests
       - unclear assumptions
       - novelty concerns
       - possible normalization errors
       - missing tests
-      - whether this is genuinely different from matched filtering
-
-validators:
-
-artifact_completeness:
-  type: checklist
-  checks:
-    - required sections are present
-    - no empty placeholder sections
-    - assumptions are explicit
-    - unresolved questions are listed
-
-citation_sanity:
-  type: literature_check
-  checks:
-    - no invented citations
-    - each named method has a citation target
-    - novelty claims are hedged unless supported
-
-mathematical_sanity:
-  type: technical_check
-  checks:
-    - notation is defined before use
-    - limiting cases are checked
-    - dimensions/units are plausible
-    - null and signal hypotheses are distinguished
-    - coherent and semicoherent mismatch are not conflated
-
-research_value:
-  type: judgment_check
-  checks:
-    - output advances the research question
-    - output identifies next concrete steps
-    - output does not merely restate idea.md
+      - whether this is different from matched filtering
+      - recommendation
+    retry:
+      enabled: true
+      min_attempts: 1
+      max_attempts: 2
+    on_failure: continue_with_warning

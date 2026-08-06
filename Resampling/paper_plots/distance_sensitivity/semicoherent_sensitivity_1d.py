@@ -13,6 +13,7 @@
 # ---
 
 # %%
+from functools import lru_cache
 from pathlib import Path
 import sys
 
@@ -27,6 +28,11 @@ if str(PAPER_PLOTS_DIR) not in sys.path:
     sys.path.insert(0, str(PAPER_PLOTS_DIR))
 
 from distance_sensitivity import semicoherent_sensitivity as sc
+from signal_generators import NoiseCurve
+from template_bank.coherent_chunk.pn_mismatch import (
+    ZeroPNMismatchConfig,
+    find_allowed_duration,
+)
 
 mpl.use("Agg")
 pl.style.use(SCRIPT_DIR.parent / "paper.mplstyle")
@@ -34,18 +40,64 @@ pl.style.use(SCRIPT_DIR.parent / "paper.mplstyle")
 # %%
 FREQUENCY_CONFIGS = [
     (20.0, 200.0),
-    (20.0, 60.0),
+    # (20.0, 60.0),
     (40.0, 60.0),
     (80.0, 100.0),
+    (59.0, 60.0),
     # (200.0, 220.0),
 ]
 FREQUENCY_GRID_STEP = 1.0
 MASS_GRID_POINTS = 121
 OUTPUT_PATH = sc.FIG_DIR / "semicoherent_sensitivity_1d.png"
 
+# These are intentionally different criteria: the first bounds the
+# 0PN-vs-3.5PN waveform overlap, while the second is the coherent power loss
+# used in the distance-sensitivity model.
+COHERENCE_WAVEFORM_MISMATCH = 0.05
+SENSITIVITY_COHERENT_POWER_MISMATCH = 0.1
+COHERENCE_SEARCH_TIME_MAX = 2000.0
+COHERENCE_SAMPLE_RATE = 512.0
+COHERENCE_ETA = 0.25
+
+
+@lru_cache(maxsize=None)
+def maximum_coherence_duration(f_start, f_stop):
+    """Return the cached 0PN-vs-3.5PN coherence limit for one search band."""
+    if f_start <= 0.0 or f_stop <= f_start:
+        raise ValueError("The frequency band must satisfy 0 < f_start < f_stop.")
+
+    search_time_max = COHERENCE_SEARCH_TIME_MAX
+    sample_rate = max(COHERENCE_SAMPLE_RATE, 2.5 * f_stop)
+    noise = NoiseCurve.from_asd_file(sc.ASD_PATH)
+
+    while True:
+        config = ZeroPNMismatchConfig(
+            f_min=f_start,
+            f_max=f_stop,
+            mchirp_min=10**sc.LOG_M_LOWER,
+            mchirp_max=10**sc.LOG_M_UPPER,
+            eta=COHERENCE_ETA,
+            max_mismatch=COHERENCE_WAVEFORM_MISMATCH,
+            search_time_max=search_time_max,
+            sample_rate=sample_rate,
+        )
+        try:
+            duration, _ = find_allowed_duration(config, noise)
+            return duration
+        except ValueError as error:
+            if "reaches ISCO before t_max" not in str(error):
+                raise
+            search_time_max *= 0.5
+            if search_time_max <= 8.0 / sample_rate:
+                raise RuntimeError(
+                    "Could not bracket the coherence limit before the "
+                    "TaylorT4 track reaches ISCO."
+                ) from error
+
 
 def sensitivity_envelope(f_start, f_stop):
     """Return max-over-f0 optimal and semicoherent sensitivities versus Mc."""
+    coherence_duration = maximum_coherence_duration(f_start, f_stop)
     fspace = np.arange(f_start, f_stop + 0.5 * FREQUENCY_GRID_STEP, FREQUENCY_GRID_STEP)
     log_mspace = np.linspace(sc.LOG_M_LOWER, sc.LOG_M_UPPER, MASS_GRID_POINTS)
     mspace = 10**log_mspace
@@ -76,8 +128,9 @@ def sensitivity_envelope(f_start, f_stop):
         sc.semicoherent_distance_sensitivity(
             fgrid,
             mgrid,
-            chunk_duration=sc.CHUNK_DURATION,
+            chunk_duration=coherence_duration,
             f_end=f_stop,
+            mismatch_coh=SENSITIVITY_COHERENT_POWER_MISMATCH,
         )
         / sc.PARSEC_M
     )
@@ -86,7 +139,19 @@ def sensitivity_envelope(f_start, f_stop):
         "mspace": mspace,
         "optimal": np.max(optimal_grid, axis=1),
         "semicoherent": np.max(semicoherent_grid, axis=1),
+        "coherence_duration": coherence_duration,
     }
+
+
+def format_coherence_duration(duration):
+    """Format a coherence duration with one significant figure."""
+    return np.format_float_positional(
+        duration,
+        precision=1,
+        unique=False,
+        fractional=False,
+        trim="-",
+    )
 
 
 def main():
@@ -99,25 +164,33 @@ def main():
             ax.plot(
                 result["mspace"],
                 result["optimal"],
-                ls="--",
-                label=f"Optimal",
+                color=f"C{idx + 1}",
+                ls="-",
+                label="Optimal",
             )
         ax.plot(
             result["mspace"],
             result["semicoherent"],
-            label=label_prefix,
+            color=f"C{idx + 2}",
+            ls="-",
+            label=("Semicoherent, "
+                f"{label_prefix}, "
+                rf"$T_{{\rm coh}}="
+                rf"{format_coherence_duration(result['coherence_duration'])}"
+                rf"\,\rm s$"
+            ),
         )
 
     ax.axhline(
         sc.GALACTIC_CENTER_PC,
-        color=f"C{len(FREQUENCY_CONFIGS) + 1}",
-        ls=":",
+        color="red",
+        ls="--",
         label="Galactic center",
     )
     ax.axhline(
         sc.ANDROMEDA_PC,
-        color=f"C{len(FREQUENCY_CONFIGS) + 2}",
-        ls=":",
+        color="darkorange",
+        ls="--",
         label="Andromeda",
     )
     ax.set_xscale("log")

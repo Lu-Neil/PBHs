@@ -1,0 +1,985 @@
+% This voodoo is needed for arXiv scripts and must appear within the first 4 lines
+\pdfoutput=1
+\documentclass[aps,prd,amsmath,floats,floatfix, twocolumn,
+superscriptaddress,nofootinbib,showpacs]{revtex4-2}
+
+% UTF8 always
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{verbatim}
+\usepackage[dvipsnames, usenames]{xcolor}
+\definecolor{linkcolor}{rgb}{0.0,0.3,0.5}
+\usepackage[hypertexnames=false, unicode, colorlinks=true, linkcolor=linkcolor,
+citecolor=linkcolor, filecolor=linkcolor,urlcolor=linkcolor, pdfusetitle]{hyperref}
+
+%\usepackage[colorlinks, pdfborder={0 0 0}, plainpages=false]{hyperref}
+\usepackage[all]{hypcap}
+\usepackage{graphicx}
+\usepackage{xspace}
+%\usepackage[usenames,dvipsnames]{color}
+\usepackage{amssymb}
+\usepackage[normalem]{ulem} %for \sout
+\usepackage{bm} % boldmath
+\usepackage{enumitem,amssymb}
+\usepackage{orcidlink}
+\usepackage{caption}
+
+% Better spacing
+\usepackage{microtype}
+\usepackage[english]{babel}
+\usepackage{blindtext}
+
+%
+\graphicspath{%
+  {figs/}%
+  % More directories are added in braces, without commas between
+}
+
+
+\DeclareMathAlphabet{\mathpzc}{OT1}{pzc}{m}{it}
+
+\newcommand{\roughly}{\mathchar"5218\relax\,} % Different from \sim in spacing
+\newcommand{\into}{\!\times\!\relax} % Different from \times in spacing
+
+% Macros for text changes
+\newcommand{\red}{\textcolor{red}}
+\newcommand{\blue}{\textcolor{blue}}
+\newcommand{\green}{\textcolor{PineGreen}}
+\newcommand{\nl}[1]{\textcolor{blue}{NL: #1}}
+\newcommand{\ls}[1]{\textcolor{red}{[LS: #1]}}
+\newcommand{\crp}[1]{\textcolor{magenta}[CP: #1]}
+\newcommand{\ojp}[1]{\textcolor{orange}{OJP: #1}}
+\newcommand{\Note}[1]{\textcolor{blue}{\textbf{[#1]}}}
+\newcommand{\bfemph}[1]{\emph{\textbf{#1}}}
+\newcommand{\TODO}[1]{\red{TODO: #1}}
+\newcommand{\AddCite}{\red{[Needs citation]}}
+\newlist{todolist}{itemize}{2}
+\setlist[todolist]{label=$\square$}
+\newcommand{\txt}[1]{{\textrm{\tiny{#1}}}}
+
+
+% macros
+\def\gw{gravitational wave\xspace}
+\def\gwh{gravitational-wave\xspace}
+\def\gws{gravitational waves\xspace}
+\def\GW{Gravitational Wave\xspace}
+\def\GWs{Gravitational Waves\xspace}
+\def\cw{continuous wave\xspace}
+\def\cws{continuous waves\xspace}
+\def\cwh{continuous-wave\xspace}
+
+
+\newcommand{\TFFT}{T_\text{FFT}}
+\newcommand{\tfftmax}{T_\text{FFT,max}}
+\newcommand{\Tobs}{T_\text{obs}}
+\newcommand{\thetathr}{\theta_\text{thr}}
+\newcommand{\bea}{\begin{eqnarray}}
+\newcommand{\eea}{\end{eqnarray}}
+\newcommand{\be}{\begin{equation}}
+\newcommand{\ee}{\end{equation}}
+
+\newcommand{\ogw}{\tilde{\omega}}
+\newcommand{\lgw}{\tilde{l}}
+\newcommand{\mgw}{\tilde{m}}
+\newcommand{\fgw}{f_{\rm gw}}
+\newcommand{\mbh}{M_{\rm BH}}
+\newcommand{\mb}{M_{b}}
+\newcommand{\dotf}{\dot{f}_{\rm gw}}
+\newcommand{\CR}{\text{CR}}
+\newcommand{\opt}{\text{opt}}
+\newcommand{\crossover}{\text{crossover}}
+
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+
+\newcommand{\bet}{\ensuremath{\frac{96}{5}\pi^{8/3}\left(\frac{G}{c^3}\right)^{5/3}M^{5/3}_cf^{8/3}_0}}
+\newcommand{\befact}{\ensuremath{\left(1-\frac{8}{3}\beta t}\right)}
+\newcommand{\befactD}{\ensuremath{\left(1-\frac{8}{3}(\beta+\Delta\beta) t\right)}}
+\newcommand{\mcsun}{\ensuremath{\frac{M_c}{10^{-2}M_{\odot}}}}
+\newcommand{\ftwo}{\ensuremath{\frac{f_0}{200~Hz}}}
+\newcommand\anu{\affiliation{OzGrav-ANU, Centre for Gravitational Astrophysics, Research School of Physics and Research School of Astronomy \& Astrophysics, The Australian National University, ACT 2601, Australia}}
+\newcommand\INFNRoma{\affiliation{INFN, Sezione di Roma, I-00185 Roma, Italy}}
+\newcommand\uib{\affiliation{IAC3–IEEC, Universitat de les Illes Balears, E-07122 Palma de Mallorca, Spain}}
+%\usepackage[dvipsnames, usenames]{xcolor}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{document}
+
+\title{A semicoherent resampling method for long-transient gravitational-wave searches with applications to subsolar mass primordial black holes binaries}
+
+\author{Neil Lu}
+\email{neil.lu@anu.edu.au }
+\anu
+
+\author{Cristiano Palomba}
+\INFNRoma
+
+\author{Ornella J. Piccinni}
+\uib
+
+\author{Ling Sun}
+\anu
+
+
+\date{\today}
+
+%==========================================================================
+\begin{abstract}
+I scienced something, so now you get to read it. \ls{add abstract}
+\end{abstract}
+
+\maketitle
+
+%==========================================================================
+% \tableofcontents
+
+\section{Introduction}
+\label{sec:introduction}
+
+A decade after the first direct detection of gravitational waves (GWs) \cite{LIGOScientific:2016aoc}, GW astronomy has become an established observational probe of compact-object astrophysics and strong-field gravity. The LIGO \cite{LIGOScientific:2014pky}, Virgo \cite{VIRGO:2014yos}, and KAGRA \cite{KAGRA:2020tym} detectors have detected hundreds of compact-binary coalescence signals, transforming the original discovery into a growing population of astrophysical sources \cite{LIGOScientific:2026wfs}. The currently observed catalog consists of compact binary mergers whose signal durations in the sensitivity band of ground-based interferometers are typically short, ranging from fractions to tens of seconds.
+
+There is growing interest in transient GW signals that remain detectable for much longer times. These could be produced by novel sources; post-merger remnants of neutron-star mergers \cite{LIGOScientific:2017fdd, Grace:2023kqq}, during or in the aftermath of pulsar glitches \cite{Keitel:2019zhb, Haskell:2023exob}, low mass primordial black hole binaries \cite{Miller:2024rca, Andres-Carcasona:2024jvz, Rodriguez:2026oyi}, or ultra-light vector boson clouds around black holes \cite{Siemonsen:2019ebd, Jones:2023fzz, LIGOScientific:2025csr}. These signals offer substantial scientific opportunities, but their long duration also creates difficulties in the analysis of such signals. The computational cost of matched filtering, the conventionally used technique for detecting signals, and template-bank size can increase rapidly with the signal duration \cite{Owen:1998dk}.
+
+A natural way to reduce this cost is to use semicoherent methods. Such methods are standard in searches for continuous gravitational waves (also referred to as continuous waves), where fully coherent integration over months or years is often computationally prohibitive. In a semicoherent search, the data are divided into shorter segments, a detection statistic is coherently computed in each segment, and the segment-level information is then combined incoherently, for reviews on these methods see \cite{Wette:2023dom, Tenorio:2021wmz}. This sacrifices phase coherence and reduces sensitivity, but can dramatically reduce computational cost and enable broader searches over otherwise inaccessible parameter spaces. These can be used to search for both modelled \cite{Piccinni:2018akm, Prix:2011qv} and unmodelled \cite{Suvorova:2016rdc, Sun:2017zge, Macquet:2021ttqa} signals. 
+
+Semicoherent methods require the data to remain confined within a single Fourier bin. For slowly evolving continuous-wave signals, such as from rotating neutron stars, this condition can be satisfied even for long coherence times as their frequency evolution is small. For more rapidly evolving signals, however, the frequency evolution would demand short coherence lengths to ensure the signal remains confined to a single Fourier bin (whose width is the inverse of the coherence time), causing loss of sensitivity. This motivates a preprocessing step that removes the expected frequency evolution before constructing the segment-level spectra. Given a known signal model, the time series can be resampled to remove the modeled frequency evolution, after which it will be monochromatic and remain confined within a Fourier bin. This enables semicoherent analysis with longer coherence duration and greater sensitivities. 
+
+When searching over signal durations from $\mathcal{O}(10^2\,\mathrm{s})$ to $\mathcal{O}(10\,\mathrm{months})$ the computational cost is, as with continuous wave analysis, dominated by the generation of the resampled time series and the subsequent Fourier transforms. In this work, we present a resampling implementation which accelerates both the frequency correction step and the subsequent production of Fourier spectra. We demonstrate the applicability of this technique in searches for sub-solar mass black holes, potentially of primordial origin, which may have formed in the early Universe \cite{Carr:2023tpt}. Unlike astrophysical black holes formed through stellar collapse, primordial black holes could exist with sub-solar masses \cite{Carr:1975qj} and therefore have durations lasting from tens of seconds to years. Within audio-band gravitational-wave detectors these systems would remain in their inspiral phase before merging at higher frequencies. 
+
+The structure of the paper is as follows. In Sec.~\ref{sec:signal_model} we describe the signal model we use for subsolar mass black hole inspirals and review some of their basic properties. In Sec.~\ref{sec:methods} we introduce non-uniform fast Fourier transforms (NUFFTs) and demonstrate their usage, we also detail a semicoherent search which can be used to search for the subsolar mass black hole inspirals. In Sec.~\ref{sec:distance_sens} we characterize the distance sensitivity this semicoherent method could achieve and verify this with a signal injections into detector noise. In Sec.~\ref{sec:discussion} we discuiss the computational cost of the semicoherent search and possible strategies to follow-up and veto candidates. Finally we conclude and discuss future work in Sec.~\ref{sec:conclusion}. 
+
+%==========================================================================
+\section{Signal model}
+\label{sec:signal_model}
+We consider the inspiral of two sub-solar mass BHs. PBH binaries with total masses less than $0.1 M_\odot$ remain within the inspiral regime during their entire duration within the sensitivity band of ground-based detectors and coalesce at higher frequencies. This can be seen by considering the frequency of the inner-most stable circular orbit (ISCO), defined to be the minimum radial distance beyond which no stable circular orbits are possible, after which the signal has definitively exited the inspiral regime:
+\begin{gather}
+    f_{\rm ISCO} \simeq 4400 \frac{M_\odot}{M_{\rm tot}} \, \mathrm{Hz} \, .
+\end{gather}
+Systems with chirp masses less than $0.1 M_\odot$ therefore coalesce at frequencies much higher than those detectable in ground-based detectors. 
+
+It is also useful to consider the signal durations of PBH binaries. The inspiral evolution of binary black holes is described by Post-Newtonian (PN) theory which is a perturbative description of the binary inspiral in powers of the characteristic orbital velocity, $v/c$. Using the leading order term (0PN) allows us to estimate the time taken for a system to evolve from a starting frequency $f_0$ to final frequency $f_{\rm end}$ is given by:
+\begin{gather}
+    t_{\rm start \rightarrow finish} \simeq \frac{3}{8\beta(f_0, M_c)}\left( 1-\left(\frac{f_0}{f_{\rm end}}\right)^{8/3}\right) \, , \\
+    \beta(f_0, M_c) = \bet \, ,
+\end{gather}
+where, where $G$ is the gravitational constant, and $c$ is the speed of light, $M_c = {(m_1 m_2)^{3/5}}{(m_1 + m_2)^{-1/5}}$ is the chirp mass of the binary system, $m_1$ and $m_2$ are the masses of each black hole, and $f_0$ is the frequency at a reference time $t_0$. 
+For systems with chirp masses of $10^{-1}M_\odot$ ($10^{-4}M_\odot$), it takes approximately 3 hours (32 years) to chirp across the audio-detector band of 20--2000 Hz. The signal morphology of PBHs is therefore distinct from both standard compact-binary-coalescence signals and continuous waves from isolated neutron stars. Compared to stellar-mass compact binary coalescences (CBCs), the evolution is much slower, so the signal can require long coherent integration times. However, unlike a continuous wave, the signal is not well approximated as monochromatic over the full observation time: its deterministic chirp can still accumulate a large phase drift. The search problem is therefore best viewed as a long-duration chirp search, rather than either a short transient CBC search or a nearly monochromatic continuous-wave search.
+
+In this analysis we construct waveforms at 3.5PN \cite{Blanchet:2001ax, Faye:2012we} considering only non-spinning, equal mass-ratio systems, the free parameters of the waveform are $\theta = \{M_c, f_0\}$. This PN order was, until recently, the highest for which a complete analytical expression for the inspiral phasing was available, although the non-spinning phase has now been extended to 4.5PN order \cite{Blanchet2023_4p5PN}. We expect the neglected higher-order terms to have a small effect in the parameter space considered here: for an equal-mass binary with $M_c=1.2M_\odot$, the combined 4PN and 4.5PN contributions amount to only approximately $0.2$ gravitational-wave cycles when integrated up to the innermost stable circular orbit. The lower-mass systems targeted by this search remain much farther from their ISCO over the analysis band, where the PN expansion parameter is smaller, and should therefore accumulate substantially less dephasing from these terms. We use TaylorF2 \cite{Buonanno:2009zt, Pan:2007nw, Boyle:2009dg} and TaylorT4 implementations \cite{Buonanno:2009zt} for the frequency and phase of the 3.5PN waveform \cite{Arun:2004hn}, as provided by the \verb|lalsuite| package \cite{lal, swiglal}.
+
+However, it is necessary to use the 3.5PN waveform instead of lower PN order waveforms because, while the instantaneous frequency differences are often small, they accumulate over waveform cycles and can produce large phase differences over a full waveform duration. This is shown in Fig. \ref{fig:PN_error} which plots the difference between 3.5PN and lower order PN waveforms. The upper panel demonstrates that the frequency difference between 3.5PN and lower order PN waveform grows exponentially, or faster, in time. The grey line indicates the Fourier-bin width on the vertical axis, calculated as the reciprocal of the time shown on the horizontal axis. The intersection between the frequency residual curves and the grey line marks an approximate time after which a lower order PN phase model would lose most of the signal power. This takes $\sim10^3$~s ($10^5$~s) for the systems with $M_c=10^{-1}M_\odot$ ($10^{-3}M_\odot$) after which the frequency difference would be greater than $10^{-3}$~Hz ($10^{-5}$~Hz). The lower panel shows the frequency difference between 3.5PN and 0PN waveforms as a function of the 3.5PN frequency. It shows that the the 3.5PN waveform has only evolved $\sim 1$~Hz (10~Hz) before the frequency difference with the 0PPN waveform has exceeded the $10^{-3}$~Hz ($10^{-5}$~Hz) which approximately when the power would start to spread into a different Fourier bin for a system with chirp mass $M_c=10^{-1}M_\odot$ ($10^{-3}M_\odot$). 
+
+\begin{figure}
+\centering
+\includegraphics[width=0.95\columnwidth]{figs/PN_error.png}
+\caption{
+    Error between the 0PN and 3.5PN waveform models for systems with $M_c = 10^{-1}, 10^{-3}M_\odot$, $f_0 = 20$ Hz, non-spinning, equal mass-ratio. The upper (lower) panel shows the difference between the instantaneous frequencies as a function of time after a reference time (frequency of the 3.5PN model).
+}
+\label{fig:PN_error}
+\end{figure}
+
+We only use the 0PN for the intrinsic strain amplitude evolution of the signal as is common in searches for sub-solar mass binary black hole signals \cite{LIGOScientific:2026wxza, LVK:2022ydq, Kacanja:2026byy}. The intrinsic strain amplitude evolution is then: 
+\begin{align}
+h_0(t) &= \frac{4}{d} \left( \frac{G M_c}{c^2} \right)^{5/3} \left(  \frac{\pi f(t)}{c} \right)^{2/3}  \label{eq:h0} \\
+& \simeq 1.6 \times 10^{-24} \left( \frac{d}{10 \text{kpc}}  \right) ^{-1} \left(  \frac{M_c}{10^{-3} M_\odot} \right) ^{5/3} \left(  \frac{f(t)}{50\text{Hz}} \right)^{2/3} \, ,
+\end{align}
+where $d$ is the distance to the binary system. 
+
+The strain measured by a detector is the antenna-pattern-weighted sum of the two gravitational-wave polarizations,
+\begin{equation}
+    h(t) = F_+(t;\alpha,\delta,\psi) h_+(t) 
+    + F_\times(t;\alpha,\delta,\psi) h_\times(t) ,
+    \label{eq:detector_response}
+\end{equation}
+where $F_+$ and $F_\times$ are the detector antenna pattern functions, which depend on the source sky location $(\alpha,\delta)$, polarization angle $\psi$, and time through the rotation of the Earth. For the quadrupole harmonic:
+\begin{align}
+    h_+(t) &= h_0(t) \frac{1+\cos^2\iota}{2} \cos\phi(t), \\
+    h_\times(t) &= h_0(t) \cos\iota \sin\phi(t),
+\end{align}
+where $\iota$ is the inclination of the binary orbital angular momentum relative to the line of sight and $\phi$ is the gravitational wave phase.
+
+
+%==========================================================================
+\section{Methods}
+\label{sec:methods}
+The search consists of two stages.  First, the full observing time $T_\mathrm{obs}$ is divided into segments of duration $T_{\rm coh}$. Each segment is searched over using 0PN templates as described in Sec.~\ref{sec:coherent_analysis}. This coherent analysis uses a novel resampling implementation using non-uniform fast Fourier transform (NUFFT) as detailed in Sec. \ref{sec:resampling}.The second stage of the analysis is a semicoherent combination of segments along 3.5PN frequency tracks as described in Sec.~\ref{sec:semicoherent_combination}. 
+
+Unless otherwise stated, the fiducial search uses one year of data, the band 
+$40~{\rm Hz} = f_{\rm low} \leq f \leq f_{\rm high} = 64~{\rm Hz}$, chirp masses
+$5\times10^{-4}M_\odot = M_{c \, \mathrm{low}}  \leq M_c \leq M_{c \, \mathrm{high}} = 10^{-1}M_\odot$, and the equal-mass value
+of the symmetric mass ratio, $\nu=1/4$.
+
+% to mitigate any finite length effects, resampled to search for a specific 0PN signal corresponding to a value of $\beta$, then Fourier transformed. This is implemented in a single step using a non-uniform fast Fourier transform (NUFFT) as detailed in Sec. \ref{sec:resampling}. This results in frequency spectra for each value of $\beta$ searched over. The second stage of the analysis is a semicoherently combination of segments along 3.5PN frequency tracks. The noise weighting of semicoherent segments must correct for the effect of NUFFT on the PSD. This analysis procedure differs from the standard peakmap used in continuous wave analysis since signal within each segment is coherently analyzed using the 0PN phase model instead of a monochromatic signal. \ls{should still be monochromatic within Tcoh after resampling}
+% \ls{the descriptions here are generally too colloquial, e.g., along 3.5PN frequency tracks, correct for effect of NUFFT on the PSD; need rewording}
+
+\subsection{Coherent analysis over $T_{\rm coh}$}
+\label{sec:coherent_analysis}
+The shorter coherent segments can be described adequately by a simpler 0PN model. At 0PN, the frequency evolution of gravitational waves emitted by a PBH binary during their inspiral can be written as:
+\begin{equation}
+    f(f_0, t) = f_0 \left( 1-\frac{8}{3}\beta(f_0, M_c) t \right)^{-3/8} \, , \label{eq:f}
+\end{equation}
+The corresponding phase evolution of this signal is:
+\begin{equation}
+    \phi(\beta, t) = -\frac{6\pi}{5} f_0 \frac{(1-\frac{8}{3}\beta t)^{5/8}}{\beta} + \phi_0 \, , \label{eq:phi}
+\end{equation}
+where $\phi_0$ is the phase at the reference time $t=0$. 
+
+We select a coherent segment length such that the mismatch between the 0PN model and the full 3.5PN signal is $\mathcal{M}_{\rm PN} \leq 0.05$. We define the usual noise-weighted inner product between two waveforms $a$ and $b$ as:
+\begin{equation}
+(a|b)
+=
+4 \, {\rm Re}
+\int
+\frac{a^{*}(f)b(f)}{S_n(f)}\,df \, ,
+\end{equation}
+where $*$ is the complex conjugate and $S_n(f)$ is the noise spectral density. 
+The overlap between the 3.5PN and 0PN waveforms is
+\begin{equation}
+\mathcal{O}(T_{\rm coh}, f_0, M_c)
+=
+\max
+\frac{
+\left(h_{\rm 3.5PN} \middle| h_{\rm 0PN}\right)
+}{
+\sqrt{
+\left(h_{\rm 3.5PN} \middle| h_{\rm 3.5PN}\right)
+\left(h_{\rm 0PN} \middle| h_{\rm 0PN}\right)
+}
+} ,
+\end{equation}
+\ls{define variables}
+where $h_{\rm 3.5PN}$ is a 3.5PN waveform, $h_{\rm 0PN}$ is a 0PN waveform, and relative time and phase shifts. The mismatch is defined to be:
+\begin{equation}
+\mathcal{M}_{\rm PN}(T_{\rm coh}, f_0, M_c)
+=
+1 - \mathcal{O}(T_{\rm coh}, f_0, M_c).
+\end{equation}
+We require
+\begin{equation}
+\max_{f_0,M_c}
+\mathcal{M}_{\rm PN}(T_{\rm coh}, f_0, M_c)
+= 0.05 .
+\label{eq:segment_size_condition}
+\end{equation}
+
+
+
+For the fiducial bank \ls{what is fiducial bank}, the largest mismatch occurs near
+$f_0 = 64~{\rm Hz}$ and $M_c = 0.1M_\odot$. At this point, the mismatch reaches
+$5\%$ for a segment duration of approximately $32~{\rm s}$, so we adopt
+$T_{\rm coh}=30~{\rm s}$. This is a substantial improvement over
+Fourier transforming the data directly under a monochromatic signal assumption,
+which would restrict the coherence time to approximately $3~{\rm s}$.
+\ls{unclear how you compare to the monochromatic signal assumption, what does it actually mean here? are you saying allowing some mismatch would allow us to use longer coh time? But that's not an improvement, it's a tradeoff}
+
+
+\subsubsection{$\beta$ grid}
+\label{sec:beta_grid}
+In addition to the mismatch between the 0PN and 3.5PN signal models, there is a further loss in recovered power due to the finite resolution of the $\beta$ grid used when resampling. We compute the mismatch between the 0PN signals with $\beta$ values separated by $\delta \beta$:
+\begin{equation}
+\mathcal{O}(T_{\rm coh},f_0,\beta,\delta\beta)
+=\max
+\frac{(h_\beta | h_{\beta+\delta\beta})}
+{\sqrt{(h_\beta | h_\beta)
+       (h_{\beta+\delta\beta} | h_{\beta+\delta\beta})}} ,
+\end{equation}
+and we have
+\begin{multline}
+\mathcal{M}_{\beta}
+(T_{\rm coh}, f_0, \beta, \delta\beta)
+= 
+1 - \mathcal{O}(T_{\rm coh}, f_0, \beta, \delta \beta) ,
+\end{multline}
+where \(h_\beta = h_{\rm 0PN}(f_0,\beta)\) and $\delta\beta$ is the offset between the signal and the nearest grid point.
+We impose the same mismatch budget used for the PN truncation error, requiring
+the beta-grid mismatch to satisfy
+\begin{equation}
+\max_{f_0,\beta,|\delta\beta|\leq \Delta\beta/2}
+\mathcal{M}_{\beta}
+(T_{\rm segment}, f_0, \beta, \delta\beta)
+= 0.05 .
+\label{eq:beta_mismatch_condition}
+\end{equation}
+The beta-grid spacing is computed numerically rather than through an analytic
+metric approximation to directly accounts for the non-uniform spacing required across
+the $\beta$ range. 
+
+For a fiducial search, this procedure requires 113 templates to
+span the range $\beta \sim 10^{-9}$--$10^{-3}$. The coherent mismatch
+therefore receives two controlled contributions: one from using the 0PN model
+instead of the 3.5PN model, and one from the finite $\beta$-grid spacing. Since
+each contribution is bounded by $0.05$, the total coherent mismatch is bounded
+conservatively by
+\begin{equation}
+\mathcal{M}_{\rm coh}
+\lesssim
+\mathcal{M}_{\rm PN}
++
+\mathcal{M}_{\beta}
+\leq
+0.1 .
+\end{equation}
+This ensures that the coherent power loss from both the approximate signal
+model and the $\beta$-grid discretization remains controlled within each analyzed
+segment.
+\ls{This sec also needs more work}
+
+In this section X. \ls{complete this part}
+
+%==========================================================================
+\subsection{Resampling with non-uniform fast Fourier transforms}
+\label{sec:resampling}
+Resampling is a signal-processing technique used to remove the expected phase evolution of a signal by changing the time coordinate in which the data is sampled. It was originally proposed for gravitational wave signals in \cite{Smith:1987hh} and specifically for continuous gravitational waves in \cite{livasBroadbandSearchTechniques1989, Jaranowski:1998qm, Astone:2010ct, Braccini:2011zz}; more recent implementations are described in \cite{Astone:2014dea, Mastrogiovanni:2017xjr, Meadors:2017pefa, Singhal:2019dfn}, and used in observational searches described in \cite{LIGOScientific:2026qsb, LIGOScientific:2017ytx}. 
+
+The basic idea of resampling is to define a new time variable with respect to which the signal is monochromatic. For PBH binaries, we define the new time variable:
+\begin{equation}
+\tau(\beta) = -\frac{3}{5} \frac{(1-\frac{8}{3}\beta t)^{5/8}}{\beta} , \label{eq:new_t}
+\end{equation}
+Substituting Eq. \ref{eq:new_t} into Eq. \ref{eq:phi} gives:
+\begin{equation}
+\phi(\beta, \tau) = 2\pi f_0 \tau(\beta) ,\label{eq:monochromatic}
+\end{equation}
+i.e. the signal is monochromatic with respect to $\tau$. A demonstration of the basic principle of resampling is shown in Fig. \ref{fig:resampling_picture} where a signal with an evolving frequency is resampled and is monochromatic with respect to the resampled time coordinate. The signal can then be efficiently analyzed using, e.g., fast Fourier transforms (FFTs). For fixed values of the remaining signal parameters, the unknown reference frequency ($f_0$) appears simply as the Fourier frequency in the resampled time coordinate. Consequently, the Fourier amplitude in each frequency bin is proportional to the matched-filter output for the template with the corresponding value of ($f_0$). A single FFT therefore evaluates a bank of templates spanning many reference frequencies simultaneously, rather than requiring each template to be computed separately. This is shown in Fig.~\ref{fig:resampling_spectra} which shows a signal with an evolving frequency whose signal power is spread over many Fourier bins. After resampling, the signal power is concentrated in a single Fourier bin. 
+%, but it is more robust in the presence of data gaps, which are likely to be present when searching for long-lived signals. \nl{Maybe too risky to say}
+
+\begin{figure}
+\centering
+\includegraphics[width=0.95\columnwidth]{figs/resampling_graphic.png}
+\caption{
+Resampling transforms a chirping, uniformly sampled signal into a monochromatic, non-uniformly sampled time series. The colors correspond to the signal phase and show the same data points are used even after the signal is resampled.
+}
+\label{fig:resampling_picture}
+\end{figure}
+
+However, after resampling, the signal is not uniformly sampled with respect to the new time variable ($\tau$) and so cannot be directly FFTed. Different resampling implementations 
+
+The signal is not uniformly sampled with respect to the new time variable ($\tau$), which prevents a standard FFT from being applied directly. Previous implementations of resampling used "stroboscopic" resampling \cite{Jaranowski:1998qm, Astone:2010ct, Singhal:2019dfn}, where a higher sampling frequency is used for the original time series and nearest-neighbour interpolation is used so that the resampled time series is uniformly sampled. \ls{this para is a bit unclear}
+
+\begin{figure}
+\centering
+\includegraphics[width=0.95\columnwidth]{figs/resampling_example.png}
+\caption{
+Resampling transforms a chirping signal with an evolving frequency to a monochromatic signal whose signal power is confined within a single Fourier bin. 
+}
+\label{fig:resampling_spectra}
+\end{figure}
+
+The central tradeoff of resampling is to accurately interpolate the timeseries onto a uniformly sampled one so that it can be Fourier transformed, while keeping computational cost manageable. Interpolation is fundamentally a convolution operation, in which the non-uniform samples are spread onto a uniform grid according to some chosen kernel. Nearest-neighbour interpolation corresponds to using a simple boxcar kernel and is computationally cheap, but to achieve accurate results the original time series must be sampled at a much higher rate. A substantial body of work in applied mathematics has studied convolution kernels which provide a better compromise between accuracy and efficiency, by spreading information over a small number of nearby grid points while controlling the resulting interpolation error. The final object of interest, however, is not the interpolated time series itself, but its Fourier transform. This is precisely the operation performed by a type-I non-uniform fast Fourier transform (NUFFT) \cite{duttFastFourierTransforms1993, Barnett:2019FINUFFT}. The interpolation and FFT are combined into a single algorithm for computing Fourier coefficients from data associated with non-uniform sample locations. The NUFFT approach therefore replaces the interpolation step of stroboscopic resampling with a controlled, kernel-based approximation whose accuracy and computational cost can be tuned directly. \ls{This para need more work too, lots of long sentences; need citations}
+
+\nl{ACTION: add more NUFFT mathematical details in Appendix} There are many NUFFT methods and implementations, which differ primarily in the approximation technique used to interpolate or spread the data, depending on the choice of kernel function. For older review articles with accessible introductions to the subject, see \cite{greengardAcceleratingNonuniformFast2004, wareFastApproximateFourier1998}. For modern implementations on CPUs and GPUs see \cite{finufftFlatironinstituteFinufftNonuniform, shihCuFINUFFTLoadbalancedGPU2021, linJyhmiinlinPynufft2023, vaillantGhisvailPyNFFT2023, vanderplasJakevdpNfft2023, ouGNUFFTWAutoTuningHighPerformance2017} and the references within. Throughout the rest of this work we use the fiNUFFT implementation described in \cite{2019SJSC...41C.479B}. NUFFT allows us to extract the spectra of a resampled signal as shown in Fig. \ref{fig:resampling_spectra}. The speedup of NUFFT compared to stroboscopic resampling, at the same desired accuracy, is expected to be:
+\begin{equation}
+\frac{C_\text{strobo}}{C_\text{NUFFT}}
+\sim
+\frac{r}{\log r} , 
+\label{eq:nufft_speedup_scaling}
+\end{equation}
+where $r$ is the upsampling ratio of stroboscopic resampling commonly taken to be $\approx 40$ which leads to a factor of 5--50 speedup. This is benchmarked in Fig. \ref{fig:NUFFT_speedup} and shows speedups that agree with these theoretical expectations. The computational scaling of the NUFFT implementation and its comparison with stroboscopic resampling are discussed in further detail in  Appendix~\ref{sec:nufft_performance}. 
+
+\begin{figure}
+\centering
+\includegraphics[width=0.95\columnwidth]{figs/2d_strobo_vs_nufft_speedup.png}
+\caption{
+Speedup of using NUFFT compared to stroboscopic resampling for $f_0 = 20,\mathrm{Hz}$, $M_c = 10^{-2} M_\odot$, $f_\mathrm{sampling} = 512 \, \mathrm{Hz}$ and $T_\text{obs} = 32, 256, 2048 \,\mathrm{s}$. The upsampling ratio is used by the stroboscopic resampling and the determines its accuracy, existing implementations of stroboscopic resampling often use upsampling ratios of $\approx40$ for which substantial speedups could be achieved by using NUFFT. 
+}
+\label{fig:NUFFT_speedup}
+\end{figure}
+
+\subsection{Coherent integration over $T_{\rm coh}$}
+\label{sec:parameter_space}
+The coherent stage analyzes each segment independently.  The goal is to recover
+the power associated with a signal over a duration short enough that the 0PN
+model is accurate.  The output of this stage is a set of power maps indexed by frequency, 
+segment start time and $\beta$.
+
+\subsection{Semicoherent combination over $T_{\rm obs}$}
+\label{sec:semicoherent_combination}
+After the coherent analysis described above, the data are represented by a collection of resampled spectra indexed by resampled Fourier frequency, segment start time $t_i$, and $\beta$. These spectra may then be combined along the frequency evolution of a candidate signal using any suitable semicoherent method, including peakmap \cite{Astone:2014esa, Miller:2018rbg, Piccinni:2018akm}, Hough-transform \cite{Krishnan:2004sv, Astone:2014esa, Mendell_stackslide_hough, Miller:2018rbg}, $\mathcal{F}$-statistic \cite{Jaranowski:1998qm}, or Viterbi-based approaches \cite{Suvorova:2016rdc, Sun:2017zge, Alestas:2024ubs}. Here, we describe a noise-weighted stack-slide implementation \cite{Brady:1998nj, Mendell_stackslide_hough} to demonstrate the feasibility of the method. Note that these methods would need to be modified to operate on higher dimensional tracks. Rather than constructing a two-dimensional time-frequency map and summing power along template tracks, we construct spectra on a three-dimensional time-frequency-$\beta$ map. The semicoherent statistic is then obtained by accumulating power along the template track in this higher-dimensional space.
+
+As described in Sec. \ref{sec:signal_model}, since we are only considering non-spinning, equal-mass systems, the 3.5PN signal depends on the parameters
+$\theta = \{M_c, f_{0}\}$. Without loss of generality we instead work with the parameters $\theta = \{M_c, t_{20}\}$, where $t_{20}$ is the time at which the 3.5PN TaylorF2 track crosses $20,{\rm Hz}$. The 3.5PN signal model maps $\theta$ to a track through the frequency-time-$\beta$ spectra, specifying the set of points $\{f_i, t_i, \beta_i\}$ which the signal power exists within. 
+
+For each segment, we define the normalized single-bin Fourier power as
+\begin{equation}
+P_i(f)
+=
+\frac{2\left|\widetilde{x}_i\left(f\right)\right|^2}
+{T_i S_i^{\rm eff}(f)},
+\label{eq:normalized_power}
+\end{equation}
+where $\widetilde{x}_i(f)$ is the Fourier transform of the
+resampled data in segment $i$, $T_i$ is the segment duration, and $S_i^{\rm eff}(f)$ is the
+effective noise PSD after resampling and windowing. Stationary Gaussian noise satisfies has an expectation mean and variance of one. 
+
+The relative weight assigned to segment $i$ is
+\begin{equation}
+w_i(\theta)
+\propto
+\frac{A_i^2(\theta)\Gamma_i}
+{S_i^{\rm eff}\!\left[f_i(\theta)\right]},
+\end{equation}
+where $A_i^2(\theta)$ is the average squared signal amplitude, including
+modulation by the detector antenna response, and $\Gamma_i$ accounts for
+the windowing function. These weights are normalized such that $\sum_{i}w_i^2=1$. 
+
+The semicoherent statistic for a trial template $\theta$ is then: \ls{is there a better notation? this looks like noise}
+\begin{equation}
+n_\sigma(\theta)
+=
+\sum_{i\in C(\theta)}
+w_i(\theta)
+\left\{P_i\left[f_i(\theta)\right]-1
+\right\},
+\label{eq:semicoherent_statistic}
+\end{equation}
+where $f_i(\theta)$ is evaluated at the nearest available frequency bin,
+and $C(\theta)$ is the set of segments for which the trial track lies
+inside the frequency band of the analysis. The subtraction removes the expected
+noise contribution from each segment. 
+Thus, $n_\sigma$ measures the accumulated excess power in units of its
+noise-only standard deviations and is also commonly referred to as the
+critical ratio.
+
+Compared with a fully coherent matched-filter SNR accumulated over the
+same observing time, the stack-slide statistic incurs the usual semicoherent
+penalty: for $N_{\rm coh} = |C(\theta)|$ coherent segments, the power recovered 
+is reduced relative to the fully coherent matched-filter scaling by a factor
+$N_{\rm coh}^{1/4}$.
+
+\ls{use same notation for mismatch, how does the mismatch relate to the mismatches discussed earlier?}
+A template bank is used to search for the values of $M_c$ and $t_{20}$ which are not
+known a-priori.  We build the template bank based on the semicoherent mismatch:
+\begin{equation}
+    \mu(\theta, \theta_s) = 1-\frac{n_\sigma(\theta;\theta_s)}{n_\sigma(\theta_s;\theta_s)} \, , \label{eq:semicoherent_mismatch}
+\end{equation}
+where $n_\sigma(\theta, \theta_s)$ is the semicoherent statistic when a template $\theta$ is used and the signal contains the true parameters $\theta_s$. We require:
+\begin{equation}
+    \max_{\theta, \theta_s}\mu(\theta, \theta_s) \leq 0.05 = \mu_{\rm max}
+\end{equation}
+
+We estimate the required size of the template bank using a geometric approach, standard in semicoherent searches \cite{Prix:2007ks,Wette:2014tca}. Other algorithms developed for
+compact-binary template banks \cite{Brown:2012nn}, including
+MANIFOLD-style, stochastic, or hybrid bank-generation strategies
+\cite{Hanna:2022zpk,Hanna:2024tom,Kacanja:2024pjh,Roy:2017oul,Roy:2017qgg},
+could be adapted to the semicoherent mismatch and applied.  Such algorithms may
+produce smaller banks at fixed retained power, particularly near boundaries or
+in regions where the local metric varies rapidly. 
+
+In the geometric approach we define a metric:
+\begin{equation}
+g_{ab}(\theta_s)
+=
+-\frac{1}{2n_\sigma(\theta_s;\theta_s)}
+\left.
+\frac{\partial^2 n_\sigma(\theta;\theta_s)}
+{\partial\theta^a\partial\theta^b}
+\right|_{\theta=\theta_s} ,
+\label{eq:semicoherent_metric_tensor}
+\end{equation}
+and use this to approximate Eq. \ref{eq:semicoherent_mismatch} at a small offset $\Delta\theta$ from the true signal parameter $\theta_s$ using a quadratic form: 
+\begin{align}
+\mu(\theta_s+\Delta\theta;\theta_s;)
+&\simeq  g_{ab}(\theta_s)\Delta\theta_a\Delta\theta_b
+\label{eq:semicoherent_metric_expansion}
+\end{align}
+with implicit summation over $a, b$. Here we numerically differentiate the TaylorF2
+signal model to obtain the non-uniform metric. 
+
+We use the metric to compute the number of templates required:
+\begin{equation}
+    N \simeq \theta
+    {\mu^2_{\max}}^{-n/2}
+    \int_{\rm bank}
+    \sqrt{\det g(\theta)}
+    \,dM_c\,dt_{20}.
+    \label{eq:standard_template_count}
+\end{equation}
+where $n$ is the dimension of the bank and $\theta$ is the dimensionless
+covering factor set by the lattice geometry.  In two dimensions,
+$\theta=1/2$ for a square covering and
+$\theta=2/(3\sqrt{3})$ for a hexagonal covering \cite{Jaranowski:2005hz}. For our fiducial bank this gives
+an estimate of $2\times 10^{10}$ templates required. 
+
+\section{Distance sensitivity}
+\label{sec:distance_sens}
+
+We estimate the horizon distance for this semicoherent search using the O4 design sensitivty ASD. The
+calculation follows the standard continuous-wave sensitivity treatment
+for a normalized periodogram peak \cite{Astone:2014esa, Jaranowski:1998qm,
+Mendell_stackslide_hough}. Averaging over the unknown extrinsic parameters of the system,
+inclination angle, sky localization, and polarization angle, gives the
+optimal (matched-filter) distance sensitivity:
+\begin{multline}
+    d_{\rm opt}(f_0, M_c) = \\
+    \frac{0.007517\,c\,\beta}{f_0^2\sqrt{\Lambda_{\rm thresh}}} \sqrt{\int_{t_0}^{t_0+T} \frac{\left(1-\frac{8}{3}\beta t\right)^{-1/2}}{S_n\left(f_0\left(1-\frac{8}{3}\beta t\right)^{-3/8}\right)}\,dt} \, . \label{eq:dist_sens}
+\end{multline}
+Fig. \ref{fig:optimal_distance_sensitivity} shows the distance sensitivity of this optimal matched filtered search. 
+\begin{figure}
+    \centering
+    \includegraphics[width=\columnwidth]{figs/maximum_distance_sensitivity_35PN.png}
+    \caption{ 
+        Maximum distance sensitivity of the resampling method as a function of the signal initial frequency $f_0$ and chirp mass $M_c$. The red dotted line corresponds to the distance of the galactic centre. This shows the vast majority of the parameter space has a maximum distance sensitivity beyond the galactic centre so could feasibly detect any primordial black holes within the galactic centre. \nl{ACTION: not clear that changing $t_coh$ + matched filtering}
+    }
+    \label{fig:optimal_distance_sensitivity}
+\end{figure}
+
+The distance sensitivity achievable with any realistic semicoherent search depends
+on the power loss due to signal mismatch inside the coherent segments, the
+mismatch of the semicoherent template bank, and the power loss inherent
+to semicoherent combination. The latter is captured by a semicoherent
+penalty factor:
+\begin{equation}
+    \mathcal{P}(N_{\rm coh}) \equiv \sqrt{\frac{\Lambda_{\rm thresh}(1)}{\Lambda_{\rm thresh}(N_{\rm coh})}} \, ,
+    \label{eq:semicoherent_penalty}
+\end{equation}
+The noncentrality $\Lambda_{\rm thresh}(N_{\rm coh})$ is the value
+required to reach $p_{\rm det}$ at fixed $p_{\rm FA}$ when $N_{\rm coh}$
+segments are combined incoherently. It is found by solving for $\Lambda$
+in
+\begin{equation}
+    1 - F_{\chi'^2_{2N_{\rm coh}}(\Lambda)}\!\left(\chi^2_{2N_{\rm coh};\,1-p_{\rm FA}}\right) = p_{\rm det} \, ,
+    \label{eq:noncentrality_threshold}
+\end{equation}
+where $F_{\chi'^2_{2N_{\rm coh}}(\Lambda)}$ is the CDF of the noncentral
+$\chi^2$ distribution with $2N_{\rm coh}$ degrees of freedom and
+noncentrality $\Lambda$, so the left-hand side is its survival function. Setting $N_{\rm coh}=1$ recovers
+the coherent threshold $\Lambda_{\rm thresh}(1)=46.5$. In the large-$N_{\rm coh}$ limit,
+$\lambda_{\rm thresh}(N_{\rm coh})$ grows as $\sqrt{N_{\rm coh}}$, so
+$\mathcal{P}(N_{\rm coh}) \to N_{\rm coh}^{-1/4}$, recovering the
+standard semicoherent scaling. The semicoherent distance sensitivity is therefore:
+\begin{multline}
+    d_{\rm sc}(f_0, M_c) = \\
+    \mathcal{P}\!\left(N_{\rm coh}(f_0, M_c)\right) \sqrt{(1-\mu_{\rm max})(1-\mathcal{M}_{\rm coh})}\,d_{\rm opt} \, , \label{eq:semicoherent_dist_sens}
+\end{multline}
+where $N_{\rm coh}(f_0, M_c) = |C(f_0, M_c)|$ is the number of
+coherent segments a signal is spread across. This depends implicitly on
+the search setup $\{f_{\rm low}, f_{\rm high}, M_{c\,\mathrm{low}},
+M_{c\,\mathrm{high}}\}$, which explains why expanding the search space
+can reduce the semicoherent distance sensitivity achieved.
+
+For a coherently demodulated signal, the
+critical ratio is distributed according to a noncentral $\chi^2$ variable
+with two degrees of freedom with a non-centrality parameter equal to the signal power 
+$\Lambda = P_{\rm signal}$ \cite{Astone:2014esa, Mendell_stackslide_hough}. 
+Alternately, in the presence of only noise, the critical ratio is distributed
+according to a standard $\chi^2$ distribution with two degrees of freedom. We fix the single-template false-alarm probability to $FAP = 10^{-6}$ and detection probability to $p_{\rm det} = 95\%$
+to find the threshold for the required signal power $\Lambda_{\rm thresh}=46.5$.\ls{the usage of threshold is odd, it should be the detection statistic corresponding to FRA=1e-6, is $\Lambda$ used as detection statistic?}
+
+
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\columnwidth]{figs/semicoherent_distance_sensitivity_35PN.png}
+    \caption{ 
+        Matched filter distance sensitivity of the resampling method as a function of the signal initial frequency $f_0$ and chirp mass $M_c$. The red dotted line corresponds to the distance of the galactic centre. This shows, for a fully coherent analysis, the parts of the parameter space have a distance sensitivity beyond the galactic centre and can exceed Andromeda.
+    }
+    \label{fig:optimal_distance_sensitivity}
+\end{figure}
+
+The distance sensitivity achievable with any realistic semicoherent search depends
+on the power loss due to signal mismatch inside the coherent segments, the
+mismatch of the semicoherent template bank, and the power loss inherent
+to semicoherent combination. The latter is captured by a semicoherent
+penalty factor:
+\begin{equation}
+    \mathcal{P}(N_{\rm coh}) \equiv \sqrt{\frac{\Lambda_{\rm thresh}(1)}{\Lambda_{\rm thresh}(N_{\rm coh})}} \, ,
+    \label{eq:semicoherent_penalty}
+\end{equation}
+The noncentrality $\Lambda_{\rm thresh}(N_{\rm coh})$ is the value
+required to reach $p_{\rm det}$ at fixed $p_{\rm FA}$ when $N_{\rm coh}$
+segments are combined incoherently. It is found by solving for $\Lambda$
+in
+\begin{equation}
+    1 - F_{\chi'^2_{2N_{\rm coh}}(\Lambda)}\!\left(\chi^2_{2N_{\rm coh};\,1-p_{\rm FA}}\right) = p_{\rm det} \, ,
+    \label{eq:noncentrality_threshold}
+\end{equation}
+where $F_{\chi'^2_{2N_{\rm coh}}(\Lambda)}$ is the CDF of the noncentral
+$\chi^2$ distribution with $2N_{\rm coh}$ degrees of freedom and
+noncentrality $\Lambda$, so the left-hand side is its survival function. Setting $N_{\rm coh}=1$ recovers
+the coherent threshold $\Lambda_{\rm thresh}(1)=46.5$. In the large-$N_{\rm coh}$ limit,
+$\lambda_{\rm thresh}(N_{\rm coh})$ grows as $\sqrt{N_{\rm coh}}$, so
+$\mathcal{P}(N_{\rm coh}) \to N_{\rm coh}^{-1/4}$, recovering the
+standard semicoherent scaling. The semicoherent distance sensitivity is therefore:
+\begin{multline}
+    d_{\rm sc}(f_0, M_c) = \\
+    \mathcal{P}\!\left(N_{\rm coh}(f_0, M_c)\right) \sqrt{(1-\mu_{\rm max})(1-\mathcal{M}_{\rm coh})}\,d_{\rm opt} \, , \label{eq:semicoherent_dist_sens}
+\end{multline}
+where $N_{\rm coh}(f_0, M_c) = |C(f_0, M_c)|$ is the number of
+coherent segments a signal is spread across. This depends implicitly on
+the search setup $\{f_{\rm low}, f_{\rm high}, M_{c\,\mathrm{low}},
+M_{c\,\mathrm{high}}\}$, which explains why expanding the search space
+can reduce the semicoherent distance sensitivity achieved.
+
+We numerically evaluate Eq.~\eqref{eq:semicoherent_dist_sens} for the
+fiducial search parameters and show the resulting semicoherent distance
+sensitivity in Figure~\ref{fig:semicoherent_distance_sensitivity}, taking the maximum over the initial frequency. The distance
+sensitivity depends strongly on the signal parameters, varying from
+$\mathcal{O}(1\,\mathrm{pc})$ to $\mathcal{O}(10\,\mathrm{Mpc})$. Even for the semicoherent search with realistic parameters, a
+portion of the parameter space is sensitive to signals from the Galactic
+Centre, and a smaller portion is sensitive to the next closest galaxy,
+Andromeda. Doppler corrections are not applied, owing to the short
+$T_{\rm coh}$ durations, so the distance sensitivity reported here
+applies omnidirectionally.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\columnwidth]{figs/semicoherent_sensitivity_1d.png}
+    \caption{
+        Distance sensitivity of the resampling method as a function of the signal chirp mass $M_c$. The red dotted line corresponds to the distance of the galactic centre. This shows the vast majority of the parameter space has a maximum distance sensitivity beyond the galactic centre so could feasibly detect any primordial black holes within the galactic centre. 
+    }
+    \label{fig:semicoherent_distance_sensitivity}
+\end{figure}
+
+
+\subsection{Injection verification}
+
+\ls{This subsection does not fit well here in sensitivity estimate, make it a separate sec?}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\columnwidth]{figs/detector_noise_spectra.png}
+    \caption{
+        DRAFT Frequency-time plots showing the NUFFT correction keeps the power localized within individual 
+    }
+    \label{fig:injection_spectra}
+\end{figure}
+
+We validate the semicoherent sensitivity estimate by injecting a simulated
+3.5PN chirp into real detector noise and repeating the recovery
+over a range of source distances.  The detector-noise segment and signal
+configuration used are summarized in
+Table~\ref{tab:detector-noise-injection-config}. \ls{what noise level? is it the 2023 data window?}
+
+\begin{table}[t]
+  \centering
+  \caption{
+      Configuration used for the detector-noise injection verification.
+      Times are given both as GPS seconds and UTC.
+  }
+  \label{tab:detector-noise-injection-config}
+  \begin{tabular}{ll}
+      \hline
+      Quantity & Value \\
+      \hline
+      Detector & LIGO Hanford, H1 \\
+      Injection window
+          & 2023-05-27 01:10:37--01:28:07 UTC \\
+      Sampling rate & \(512\,\mathrm{Hz}\) \\
+      ASD estimate & \(8\,\mathrm{s}\) FFT, \(4\,\mathrm{s}\) overlap \\
+      Initial frequency & \(f_0 = 40\,\mathrm{Hz}\) \\
+      Analysis band & \(40\)--\(60\,\mathrm{Hz}\) \\
+      Chirp mass & \(\mathcal{M} = 10^{-1}\,M_\odot\) \\
+      Source sky position & Galactic Centre, $\alpha = 266.42^\circ, \delta=-29.01^\circ$\\
+      Polarization parameters & \(\eta = 0\), \(\psi = 1\,\mathrm{rad}\) \\
+      Coherent segment duration & \(30\,\mathrm{s}\) \\
+      Number of segments & 35 \\
+      Injection duration & \(1050\,\mathrm{s}\) \\
+      \hline
+  \end{tabular}
+\end{table}
+
+Fig. \ref{fig:injection_spectra} shows a frequency-time plot for one such injection. It demonstrates that the NUFFT is able to localize the signal power within individual frequency bins. In comparison, using an FFT spreads the signal power over multiple frequency bins such that combining multiple bins would increase the noise power and reduce the recovered significance. 
+
+Fig. \ref{fig:injection_vs_distance} shows the recovered significance of the injection as a function of the distance of the system. In the signal dominated region, the recovered significance shows good agreement with the theoretical expectation. In particular, at the distance given in Eq. \ref{eq:semicoherent_dist_sens}, the significance does agree with a 95\% probability of detection and the semicoherent statistic scales with $1/d^2$ as expected.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\columnwidth]{figs/z_vs_distance_detector_noise.png}
+    \caption{
+        DRAFT \ls{I still don't fully understand this plot}
+    }
+    \label{fig:injection_vs_distance}
+\end{figure}
+
+%==========================================================================
+
+
+%==========================================================================
+
+\section{Discussion}
+\label{sec:discussion}
+
+
+\subsection{Computational cost}
+The computational cost of the search is dominated by two stages: constructing the resampled spectra and evaluating the semicoherent stack-slide statistic. For each value of the coherent resampling parameter $\beta$, we compute NUFFTs over $T_{\rm obs}/T_{\rm coh}$ coherent segments. Each coherent segment therefore contains approximately $T_{\rm coh} f_{\rm samp}$ samples. At fixed NUFFT tolerance, the leading scaling of the NUFFT stage is:
+\begin{equation}
+C_{\rm NUFFT}
+\sim
+N_\beta T_{\rm obs} f_{\rm samp}
+\log\left(T_{\rm coh} f_{\rm samp}\right) .
+\end{equation}
+In practice, we benchmark this stage directly; on an Intel Core Ultra 7 255U laptop CPU utilizing 4 threads, the current implementation is able to evaluate $\sim 10^5$ samples per second which would require $O(10^7)$~s for the entire NUFFT process. This, however, is parallelizable and would we expect this improve by one-two orders of magnitude for a GPU implementation. 
+
+After the resampled spectra are generated, evaluating the StackSlide statistic is computationally simple. It mainly consists of reading powers from the resampled spectra and accumulating weighted sums, and is therefore expected to be limited by memory bandwidth rather than floating-point throughput. The average number of power reads per template, corresponding to the number of coherent segments spanned by a signal, is $\mathcal{O}(10^3)$. For a bank containing $\mathcal{O}(10^{10})$ templates, this requires $\mathcal{O}(10^{13})$ power reads, corresponding to approximately $40\,\mathrm{TB}$ of memory traffic when the powers are stored in single precision. As representative values, a CPU with dual-channel DDR5 memory can sustain approximately $50\,\mathrm{GB\,s^{-1}}$, while a modern consumer GPU with GDDR6X or GDDR7 memory can sustain approximately $500\,\mathrm{GB\,s^{-1}}$. These correspond to approximately $10^{10}$ and $10^{11}$ single-precision power reads per second, respectively, giving idealized evaluation times of $\mathcal{O}(10^3)\,\mathrm{s}$ on a CPU and $\mathcal{O}(10^2)\,\mathrm{s}$ on a GPU.
+
+A practical limitation is memory size, storing the resampled spectra requires:
+\begin{equation}
+M
+=
+N_\beta Tf_{\rm band}b ,
+\end{equation}
+where $b$ is the number of bytes stored per frequency bin. For half-precision storage, $b=2$. With $T=1,{\rm yr}$, $N_\beta=144$, and $f_{\rm band}=24\,{\rm Hz}$, this gives
+\begin{equation}
+M \simeq 218\,{\rm GB}
+\end{equation}
+This exceeds the memory available on a single high-end GPU.
+
+We therefore evaluate the stack-slide statistic in time blocks that fit in GPU memory. For a GPU memory budget $M_{\rm GPU}$, the maximum block duration is approximately
+\begin{equation}
+T_{\rm block}
+\simeq
+\frac{M_{\rm GPU}}
+{N_\beta (f_{\rm high}-f_{\rm low})b} .
+\end{equation}
+For $M_{\rm GPU}=80,{\rm GB}$ and the fiducial parameters above, this corresponds to $T_{\rm block}\simeq 1.16\times10^7,{\rm s}$, or approximately $134$ days, before accounting for overheads. Templates whose tracks lie entirely within one block require no additional memory movement. Templates crossing a block boundary can be handled by caching partial sums, which adds only a small memory overhead compared to storing the spectra themselves.
+
+\subsection{Vetos and follow up}
+
+\ls{I don't think this section is necessary. There is nothing new, and we are not doing a real search in this paper}
+
+Candidates are ranked by the semicoherent detection statistic and clustered in parameter space, with the loudest template retained from each cluster. The first veto is multi-detector coincidence: a viable candidate must have consistent parameters and compatible relative amplitudes across detectors, accounting for antenna responses and noise levels. Candidates significant in only one detector, or with inconsistent best-fit parameters, are rejected.
+
+We also apply time-frequency consistency tests. Since the signal is not monochromatic, intersections with known instrumental lines do not by themselves provide a sufficient veto. Instead, we test whether the accumulated power follows the expected frequency evolution and is distributed across the observing span. Candidates whose statistic is dominated by a small number of segments are rejected, as this behaviour is more consistent with transient artifacts than with a long-duration signal. Robustness is further tested by removing high-contribution segments, individual detectors, or flagged data-quality segments.
+
+Surviving candidates are followed up with increasingly sensitive configurations. The template grid is refined around the candidate, the coherent duration is increased, and the search is repeated with finer sampling of the relevant physical parameters. A genuine signal should remain localized in parameter space and increase in significance consistently with the improved coherent sensitivity. Final follow-ups include analyses with independent implementations or algorithms, alternative waveform models, and simulated injections. Where appropriate, the parameter space is expanded to include additional intrinsic or extrinsic parameters not varied in the initial search.
+
+
+%==========================================================================
+
+\section{Conclusion}
+\label{sec:conclusion}
+Here's what you should learn now that I done'd it.
+
+
+%==========================================================================
+\begin{acknowledgments}
+We thank ...
+This work is supported by the Australian Research Council Centre of Excellence for Gravitational Wave Discovery (OzGrav), Project Number CE230100016. 
+L.S. is also supported by the Australian Research Council Discovery Early Career Researcher Award, Project Number DE240100206. 
+\end{acknowledgments}  
+
+
+\appendix
+
+\section{Validity of 0PN phase evolution}
+\label{sec:0PN_validity}
+Post-Newtonian (PN) waveforms expand the compact-binary inspiral phase in powers of the characteristic velocity
+\begin{gather}
+    v = \left(\pi \frac{G M}{c^3} f\right)^{1/3}, \label{eq:velocity}
+\end{gather}
+where $M=m_1+m_2$ is the total mass. The gravitational wave phase is then:
+\begin{gather}
+    \frac{d\phi}{dt} = \frac{v^3}{M} \\
+    \frac{dv}{dt} = -\frac{\mathcal{F}(v)}{ME'(v)} 
+\end{gather}
+where $\mathcal{F}$ is the energy flux and $E$ is the energy per unit total mass. The expressions for $\mathcal{F}$ and $E$ up till 3.5PN \cite{Faye:2012we} and can be used to derive the gravitational wave phase to the corresponding order (although different possible expansions of $\frac{\mathcal{F}(v)}{E'(v)}$ lead to different phasing models at the same PN order \cite{Buonanno:2009zt}). The TaylorT4 model \cite{Buonanno:2002fy} is a modern PN model for which the frequency-evolution equation is given by:
+\begin{gather}
+    \frac{dv}{dt} = \frac{1}{M}\sum_{k=0}^{7} a_k v^{9+k} ,
+\end{gather}
+where the expansion coefficients are given in Table \ref{table:dvdt-coefficients} in terms of the symmetric mass ratio $\nu = \frac{m_1 m_2}{(m_1 + m_2)^2}$. For the equal-mass case considered in our main analysis, $\nu=1/4$; the coefficients are nevertheless written in their general-mass-ratio form for completeness.
+
+% By inverting Eq.~\ref{eq:velocity} we have:
+% \begin{align}
+%     \dot{f}(t) &= \frac{3v^2\dot{v}}{M} \\
+%     &= \frac{3}{M^2}\sum_{k=0}^{7} a_k v^{11+k} \\
+%     &= \dot{f}_{\rm 0PN} \left(\sum_{k=0}^{7} \frac{a_k}{a_0} v^{k} \right)
+% \end{align}
+
+
+\begin{figure*}[t]
+\centering
+\begin{minipage}{\textwidth}
+\begin{tabular}{|c|c|}
+\hline
+$k$ & $a_k$ \\ 
+\hline 
+$0$ &
+$\displaystyle \frac{32}{5}\nu$ \rule{0pt}{3.5ex}
+\\[1.2ex]
+
+$1$ &
+$\displaystyle 0$
+\\[1.2ex]
+
+$2$ &
+$\displaystyle
+-\frac{32}{5}\nu
+\left(
+\frac{743}{336}
++
+\frac{11}{4}\nu
+\right)$
+\\[2ex]
+
+$3$ &
+$\displaystyle
+\frac{128}{5}\pi\nu$
+\\[2ex]
+
+$4$ &
+$\displaystyle
+\frac{32}{5}\nu
+\left(
+\frac{34103}{18144}
++
+\frac{13661}{2016}\nu
++
+\frac{59}{18}\nu^2
+\right)$
+\\[2ex]
+
+$5$ &
+$\displaystyle
+-\frac{32}{5}\pi\nu
+\left(
+\frac{4159}{672}
++
+\frac{189}{8}\nu
+\right)$
+\\[2ex]
+
+$6$ &
+$\displaystyle
+\frac{32}{5}\nu
+\left[
+\frac{16447322263}{139708800}
++
+\frac{16}{3}\pi^2
+-
+\frac{1712}{105}\gamma
++
+\left(
+\frac{451}{48}\pi^2
+-
+\frac{56198689}{217728}
+\right)\nu
++
+\frac{541}{896}\nu^2
+-
+\frac{5605}{2592}\nu^3
+-
+\frac{856}{105}\log(16v^2)
+\right]$
+\\[3ex]
+
+$7$ &
+$\displaystyle
+-\frac{32}{5}\pi\nu
+\left(
+\frac{4415}{4032}
+-
+\frac{358675}{6048}\nu
+-
+\frac{91495}{1512}\nu^2
+\right)$
+\\[2ex]
+\hline
+\end{tabular}
+\end{minipage}
+\captionof{table}{Coefficients in the expansion of $\mathrm{d}v/\mathrm{d}t$.}
+\label{table:dvdt-coefficients}
+\end{figure*}
+
+We quantify the validity of the 0PN approximation by comparing the accumulated phase of the 0PN waveform against the 3.5PN TaylorT4 waveform. For a coherent search over a duration $T$, we require the accumulated dephasing to remain smaller than half a gravitational-wave cycle,
+\begin{equation}
+    \Delta \phi(T)
+    \equiv
+    \left|
+    \phi_{\rm 3.5PN}(T)-\phi_{\rm 0PN}(T)
+    \right|
+    \leq \pi .
+    \label{eq:phase_validity}
+\end{equation}
+This condition provides a conservative coherence-time criterion: beyond this time, the 0PN template can accumulate enough phase error to significantly reduce coherent power in an FFT-based search. We therefore define the 0PN coherence time $T_{\rm coh}$ as the largest time for which Eq.~\eqref{eq:phase_validity} is satisfied. This will be discussed in further detail in Sec. \ref{sec:parameter_space}.
+
+We also estimate the corresponding loss in recovered amplitude using the complex phase-averaging factor
+\begin{equation}
+    \mathcal{A}(T)
+    =
+    \left|
+    \frac{1}{T}
+    \int_0^T
+    \exp\left[
+        i\left(\phi_{\rm 3.5PN}(t)-\phi_{\rm 0PN}(t)\right)
+    \right]
+    \, dt
+    \right| .
+    \label{eq:amplitude_penalty}
+\end{equation}
+Here $\mathcal{A}(T)=1$ corresponds to perfect phase coherence, while smaller values quantify the fractional amplitude retained after coherently integrating with a 0PN phase model.
+
+These comparisons isolate the effect of the PN truncation by keeping the binary non-spinning and quasi-circular, and by comparing only the leading restricted waveform harmonic. PBH binaries formed in the early universe are not expected to be precessing or eccentric \cite{Peters:1964zz, DeLuca:2020bjf}.
+% \subsection{Validity of the Newtonian amplitude approximation}
+
+% The waveform model used in this work adopts the restricted waveform approximation, in which the gravitational-wave amplitude is kept at leading Newtonian order while higher-order PN corrections are included only in the phase evolution. In this approximation the waveform contains only the dominant quadrupole harmonic $(\ell,m)=(2,\pm2)$, whose frequency is twice the orbital frequency \cite{Blanchet:2013haa}. Higher-order PN amplitude corrections introduce both modifications to the dominant-mode amplitude and additional harmonics at integer multiples of the orbital phase.
+
+% For the equal-mass, non-spinning, quasi-circular binaries considered here, the dominant $(2,2)$ mode remains substantially larger than the higher harmonics throughout the inspiral. PN and numerical-relativity comparisons have shown that the leading-order PN scaling of the dominant mode amplitude remains remarkably accurate deep into the inspiral and close to merger for the strongest modes \cite{Borhanian:2020gjq}. Since our analysis targets sub-solar-mass PBH binaries whose signals remain in the inspiral regime throughout the observing band, neglecting higher-order amplitude corrections is expected to introduce a significantly smaller error than neglecting higher-order phase corrections.
+
+\section{Computational performance}
+\label{sec:nufft_performance}
+We now compare the computational cost of the stroboscopic resampling procedure with the NUFFT-based implementation introduced above. Let $N$ denote the length of the final resampled time series, or equivalently the number of Fourier modes required in the final spectrum. In stroboscopic resampling, the time series is first sampled at a higher rate such that it is an upsampled time series of length:
+\begin{equation}
+U = rN , ,
+\end{equation}
+where $r$ is the oversampling factor. Nearest-neighbour interpolation is then used to construct a uniformly sampled time series in the new time coordinate, after which a standard FFT is applied. The interpolation step requires scanning over the upsampled time series and has complexity $\mathcal{O}(U)$ so the total complexity is
+\begin{equation}
+C_\text{strobo} = \mathcal{O}(rN + N\log N) , .
+\end{equation}
+To first order the error of the FFT spectra scales linearly with the the interpolation error so is:
+\begin{equation}
+\epsilon_\text{strobo} = \mathcal{O}(1/r) , .
+\end{equation}
+Thus, improving the accuracy by one order of magnitude requires increasing the length of the upsampled time series by the same factor.
+
+For a NUFFT-based implementation, the non-uniformly sampled data in the resampled time coordinate are instead transformed directly into Fourier modes. In one dimensional timeseries the complexity given $N$ non-uniform points and output modes is:
+\begin{equation}
+C_\text{NUFFT} = \mathcal{O}\left(N|\log \epsilon| + N\log N\right) , ,
+\end{equation}
+where $\epsilon$ is the requested transform accuracy. Matching the accuracy of stroboscopic resampling:
+\begin{equation}
+C_\text{NUFFT} = \mathcal{O}\left(N\log r + N\log N\right) , .
+\end{equation}
+Stroboscopic methods therefore linearly in the oversampling factor $r$, whereas the NUFFT pays only logarithmically in the target accuracy.
+
+The expected asymptotic speedup at fixed accuracy is:
+\begin{equation}
+\frac{C_\text{strobo}}{C_\text{NUFFT}}
+\sim
+\frac{r + \log N}{\log r + \log N} , .
+\label{eq:nufft_speedup_scaling}
+\end{equation}
+In the high-accuracy regime relevant for stroboscopic resampling, the upsampled time series is typically much longer than the final FFT length contribution, i.e:
+\begin{equation}
+U \gg N\log N
+\quad \Longleftrightarrow \quad
+r \gg \log N , .
+\end{equation}
+For example, for $N \sim 10^6$--$10^8$ if nearest-neighbour interpolation requires $r \sim 10^2$ to reach the desired accuracy, then the cost of scanning the upsampled time series dominates the stroboscopic method. In this regime Eq. \eqref{eq:nufft_speedup_scaling} gives an expected speedup of order 5--50.
+
+NUFFT algorithms generally all have complexity,
+\begin{equation}
+\mathcal{O}\left(N|\log\epsilon| + N\log N\right) , ,
+\end{equation}
+in one dimension, but their practical performance depends on the kernel used for spreading/interpolation, the width of the kernel support, memory access patterns, precomputation, threading, vectorization, and cache behaviour. These factors can change the prefactor by more than an order of magnitude even when the formal scaling is unchanged.
+
+% The fiNUFFT implementation used in this work uses the ``exponential of a semicircle'' kernel,
+% \begin{equation}
+% \varphi(x) = \exp\left[\beta \sqrt{1-x^2}\right] , ,
+% \qquad |x| \leq 1 , ,
+% \end{equation}
+% with compact support and an efficient load-balanced spreading implementation \cite{2019SJSC...41C.479B}. This kernel has near-optimal exponential convergence in the kernel width, comparable to Kaiser--Bessel and prolate spheroidal wavefunction kernels. As a rough comparison, if an order-8 Dirichlet-style interpolation stencil requires eight neighbouring grid points per sample, while FINUFFT achieves the same target precision with an effective kernel width of $w\simeq 6$--$7$, the raw spreading work alone would be smaller by a factor of approximately
+% \begin{equation}
+% \frac{8}{w} \simeq 1.1\text{--}1.3 , .
+% \end{equation}
+% This estimate captures only the direct stencil-width contribution. In practice, the speedup can be larger or smaller depending on the cost of evaluating the kernel, whether interpolation weights are precomputed, how well the implementation vectorizes, and how efficiently memory is accessed. The main computational gain in our application therefore comes not from a small change in kernel order alone, but from replacing the explicit construction and traversal of an upsampled time series of length $U=rN$ with a NUFFT whose accuracy cost grows only as $\log r$.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\def\bibsection{\section*{References}}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\bibliographystyle{apsrev4-2-author-truncate.bst}
+\bibliography{zotero.bib}
+
+
+\end{document}

@@ -17,6 +17,13 @@ PAPER_PLOTS_DIR = SCRIPT_DIR.parents[1]
 ASD_PATH = PAPER_PLOTS_DIR / "asd.txt"
 OUTPUT_PATH = SCRIPT_DIR / "figs" / "0PN_mismatch.png"
 MIN_SAMPLES = 8
+# The mismatch can have interior maxima as a function of f0, so the
+# coherence-limit search must sample the whole configured band rather than
+# assume that f_max is the worst case.  Resolve at least 0.05 Hz, but allow a
+# coarser grid for short chunks where the natural Fourier scale is 1 / T.
+FREQUENCY_SEARCH_MIN_STEP_HZ = 0.05
+COHERENCE_MISMATCH_TOL = 1.0e-8
+COHERENCE_DURATION_SAFETY_FACTOR = 0.99
 
 if str(PAPER_PLOTS_DIR) not in sys.path:
     sys.path.insert(0, str(PAPER_PLOTS_DIR))
@@ -218,39 +225,103 @@ def waveform_mismatch_at_duration(
     return 1.0 - match
 
 
+def frequency_search_values(config, duration=None):
+    """Return a uniform f0 grid covering the configured search band."""
+
+    step = FREQUENCY_SEARCH_MIN_STEP_HZ
+    if duration is not None:
+        step = max(step, 1.0 / duration)
+    n_by_spacing = int(
+        np.ceil((config.f_max - config.f_min) / step)
+    ) + 1
+    n_values = max(config.n_f0_validate, n_by_spacing)
+    return np.linspace(config.f_min, config.f_max, n_values)
+
+
 def find_allowed_duration(
     config,
     noise,
     model_class=PNComparisonWaveformModel,
 ):
-    waveform_model = model_class(
+    # First solve the old high-frequency corner problem.  This normally gives
+    # the limiting duration, and is much cheaper than putting a full frequency
+    # sweep inside every evaluation made by brentq.
+    corner_model = model_class(
         config.f_max,
         config.mchirp_max,
         config.eta,
         config.search_time_max,
     )
 
-    def residual(duration):
+    def corner_residual(duration):
         return (
-            waveform_mismatch_at_duration(duration, waveform_model, noise, config)
+            waveform_mismatch_at_duration(duration, corner_model, noise, config)
             - config.max_mismatch
         )
 
     lower = max(1.0e-3, 8.0 / config.sample_rate)
-    if residual(lower) >= 0.0:
-        return lower, waveform_model
-
-    upper = config.search_time_max
-    if residual(upper) < 0.0:
-        raise RuntimeError(
-            f"search_time_max does not reach the requested mismatch threshold "
-            f"for {model_class.__name__}"
+    if corner_residual(lower) >= 0.0:
+        corner_duration = lower
+    else:
+        upper = config.search_time_max
+        if corner_residual(upper) < 0.0:
+            raise RuntimeError(
+                f"search_time_max does not reach the requested mismatch threshold "
+                f"for {model_class.__name__}"
+            )
+        corner_duration = float(
+            brentq(corner_residual, lower, upper, rtol=1.0e-8, xtol=1.0e-8)
         )
 
-    return (
-        float(brentq(residual, lower, upper, rtol=1.0e-8, xtol=1.0e-8)),
-        waveform_model,
+    f0_values = frequency_search_values(config, duration=corner_duration)
+    # Build the full grid only after the corner solve.  The models need only
+    # cover corner_duration, and are then reused while an interior maximum is
+    # brought down to the requested mismatch.
+    waveform_models = tuple(
+        model_class(
+            f0,
+            config.mchirp_max,
+            config.eta,
+            corner_duration,
+        )
+        for f0 in f0_values
     )
+
+    def mismatches_at_duration(duration):
+        return np.array(
+            [
+                waveform_mismatch_at_duration(duration, waveform_model, noise, config)
+                for waveform_model in waveform_models
+            ]
+        )
+
+    def worst_mismatch_and_model(duration):
+        mismatches = mismatches_at_duration(duration)
+        worst_index = int(np.argmax(mismatches))
+        return mismatches[worst_index], waveform_models[worst_index]
+
+    duration = corner_duration
+    for _ in range(3):
+        mismatch, waveform_model = worst_mismatch_and_model(duration)
+        if mismatch <= config.max_mismatch + COHERENCE_MISMATCH_TOL:
+            return duration, waveform_model
+
+        def residual(candidate_duration):
+            return (
+                waveform_mismatch_at_duration(
+                    candidate_duration,
+                    waveform_model,
+                    noise,
+                    config,
+                )
+                - config.max_mismatch
+            )
+
+        duration = COHERENCE_DURATION_SAFETY_FACTOR * float(
+            brentq(residual, lower, duration, rtol=1.0e-8, xtol=1.0e-8)
+        )
+
+    raise RuntimeError("Frequency-grid coherence search did not converge.")
 
 
 def validate_grid(
@@ -258,7 +329,7 @@ def validate_grid(
     config,
     noise,
 ):
-    f0_values = np.linspace(config.f_min, config.f_max, config.n_f0_validate)
+    f0_values = frequency_search_values(config, duration=duration)
     mchirp_values = np.geomspace(
         config.mchirp_min, config.mchirp_max, config.n_mchirp_validate
     )

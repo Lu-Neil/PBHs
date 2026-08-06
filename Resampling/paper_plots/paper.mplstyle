@@ -11,7 +11,7 @@ axes.labelsize     : large
 axes.titlesize     : large
 axes.grid          : False
 grid.alpha         : 0.73
-lines.markersize   : 12
+lines.markersize   : 4
 legend.borderpad   : 0.2
 legend.fancybox    : True
 legend.fontsize    : 12
@@ -22,4 +22,4 @@ legend.handlelength : 2
 legend.loc         : best
 savefig.dpi        : 600
 pdf.compression    : 9
-axes.prop_cycle: cycler("color", ["#D60606", "#0083DE", "#00BA75", "#FFC61E", "#A433B3", "#FD882E"])
+axes.prop_cycle: cycler("color", ["#D60606", "#0083DE", "#00BA75", "#FFC61E", "#A433B3", "#FD882E", "#6E6E6E"])

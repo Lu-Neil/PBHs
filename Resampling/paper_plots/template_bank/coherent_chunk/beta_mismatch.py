@@ -34,7 +34,7 @@ from signal_generators import C, NoiseCurve, beta_0pn, make_0pn_track  # noqa: E
 @dataclass
 class BetaMismatchConfig:
     f_min: float = 40.0
-    f_max: float = 64.0
+    f_max: float = 60.0
     mchirp_min: float = 5.0e-4
     mchirp_max: float = 1.0e-1
     t_chunk: float = 30.0

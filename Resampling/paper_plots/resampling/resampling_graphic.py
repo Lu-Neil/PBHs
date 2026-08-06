@@ -64,3 +64,49 @@ fig.tight_layout()
 pl.savefig("figs/resampling_graphic.png")
 
 # %%
+
+# %% [markdown]
+# ## Interpolation onto a uniform resampled-time grid
+
+# %%
+# Reuse the existing samples, which are non-uniformly spaced in tau.
+tau_samples = tau[mark_idx]
+signal_samples = signal[mark_idx]
+
+# Construct a uniform tau grid with the same number of samples and interpolate onto it.
+tau_uniform = np.linspace(tau_samples[0], tau_samples[-1], len(tau_samples))
+signal_uniform = np.interp(tau_uniform, tau_samples, signal_samples)
+color_uniform = np.multiply(
+    0.7, [colorbar(int(np.mod(tau_i/2, 1)*255)) for tau_i in tau_uniform]
+)
+
+# %%
+fig, axs = pl.subplots(2, figsize=(8, 6), sharex=True)
+
+# Existing samples in resampled time, with the target uniform grid behind them.
+axs[0].plot(tau, signal, c='tab:blue')
+for i, tau_i in enumerate(tau_uniform):
+    axs[0].axvline(
+        tau_i, color='0.75', linewidth=0.8, zorder=0,
+        label='Uniform target grid' if i == 0 else None,
+    )
+for j, i in enumerate(mark_idx):
+    axs[0].plot(
+        tau[i], signal[i], linestyle='none', marker='o', markersize=8,
+        c=color_arr[i], zorder=2,
+        label='Non-uniform samples' if j == 0 else None,
+    )
+axs[0].set_ylabel('Strain')
+axs[0].legend()
+axs[0].grid(True)
+
+# The same data after interpolation onto the uniform grid.
+axs[1].plot(tau, signal, c='tab:blue')
+for tau_i, signal_i, color_i in zip(tau_uniform, signal_uniform, color_uniform):
+    axs[1].plot(tau_i, signal_i, linestyle='none', marker='o', markersize=8, c=color_i)
+    axs[1].plot([tau_i, tau_i], [0, signal_i], c=color_i)
+axs[1].set_xlabel('Resampled time (s)')
+axs[1].set_ylabel('Strain')
+axs[1].grid(True)
+
+fig.tight_layout()

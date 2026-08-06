@@ -23,8 +23,8 @@ from distance_sensitivity.maximum_sensitivity_35PN import (  # noqa: E402
 
 base.plt.style.use(PAPER_STYLE_PATH)
 
-OUTPUT_PATH = base.SCRIPT_DIR / "semicoherent_track_injection_detector_noise.png"
-Z_DISTANCE_OUTPUT_PATH = base.SCRIPT_DIR / "z_vs_distance_detector_noise.png"
+OUTPUT_PATH = base.FIGS_DIR / "semicoherent_track_injection_detector_noise.png"
+Z_DISTANCE_OUTPUT_PATH = base.FIGS_DIR / "z_vs_distance_detector_noise.png"
 
 DETECTOR = "H1"
 DATA_QUALITY_FLAG = "H1_DATA"

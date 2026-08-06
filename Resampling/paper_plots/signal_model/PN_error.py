@@ -184,34 +184,41 @@ for color, data in zip(colors, trajectory_data):
         residual_abs,
         color=color,
         alpha=0.65,
-        label=rf"$f_{{\mathrm{{model}}}}=\mathrm{{0PN}}$, $M_c={mc_label}\,M_\odot$",
+        label=rf"$M_c={mc_label}\,M_\odot$",
     )
-    ax2.plot(
-        data["t_res_pn"],
-        residual_35pn_minus_1pn_abs,
-        color=color,
-        linestyle="--",
-        label=rf"$f_{{\mathrm{{model}}}}=\mathrm{{1PN}}$, $M_c={mc_label}\,M_\odot$",
-    )
+    # ax2.plot(
+    #     data["t_res_pn"],
+    #     residual_35pn_minus_1pn_abs,
+    #     color=color,
+    #     linestyle="--",
+    #     label=rf"$f_{{\mathrm{{model}}}}=\mathrm{{1PN}}$, $M_c={mc_label}\,M_\odot$",
+    # )
     
     ax3.plot(
         data["f_taylorf2"],
         residual_abs,
         color=color,
         alpha=0.65,
-        label=rf"$f_{{\mathrm{{model}}}}=\mathrm{{0PN}}$, $M_c={mc_label}\,M_\odot$",
+        label=rf"$M_c={mc_label}\,M_\odot$",
     )
-    ax3.plot(
-        data["f_taylorf2"],
-        residual_35pn_minus_1pn_abs,
-        color=color,
-        linestyle="--",
-        label=rf"$f_{{\mathrm{{model}}}}=\mathrm{{1PN}}$, $M_c={mc_label}\,M_\odot$",
-    )
+    # ax3.plot(
+    #     data["f_taylorf2"],
+    #     residual_35pn_minus_1pn_abs,
+    #     color=color,
+    #     linestyle="--",
+    #     label=rf"$f_{{\mathrm{{model}}}}=\mathrm{{1PN}}$, $M_c={mc_label}\,M_\odot$",
+    # )
+ax2.plot(
+    data["t_res_pn"],
+    1/data["t_res_pn"],
+    color='grey',
+    linestyle="-",
+    label="Fourier bin width",
+)
 ax2.set_yscale("log")
 ax2.set_xscale("log")
 ax2.set_xlabel("Time [s]")
-ax2.set_ylabel(r"$|f_{\rm 3.5PN} - f_{\rm model}|$ [Hz]")
+ax2.set_ylabel(r"$|f_{\rm 3.5PN} - f_{\rm 0PN}|$ [Hz]")
 ax2.legend(loc="best")
 ax2.grid(True, which="both", alpha=0.3)
 
@@ -225,7 +232,7 @@ ax3_ticks = ax3_ticks[(ax3_ticks >= f0) & (ax3_ticks <= f_stop)]
 ax3.set_xticks(ax3_ticks)
 ax3.set_xticklabels([f"{tick:g}" for tick in ax3_ticks])
 ax3.set_xlabel(r"$f_{\rm 3.5PN}$ [Hz]")
-ax3.set_ylabel(r"$|f_{\rm 3.5PN} - f_{\rm model}|$ [Hz]")
+ax3.set_ylabel(r"$|f_{\rm 3.5PN} - f_{\rm 0PN}|$ [Hz]")
 ax3.legend(loc="best")
 ax3.grid(True, which="both", alpha=0.3)
 

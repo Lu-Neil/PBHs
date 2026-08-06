@@ -8,6 +8,7 @@ from matplotlib.axes import Axes
 import numpy as np
 
 SCRIPT_DIR = Path(__file__).resolve().parent
+FIGS_DIR = SCRIPT_DIR / "figs"
 PAPER_PLOTS_DIR = SCRIPT_DIR.parents[1]
 PAPER_STYLE_PATH = PAPER_PLOTS_DIR / "paper.mplstyle"
 
@@ -20,7 +21,7 @@ from distance_sensitivity.injection import nonoise_injection as base  # noqa: E4
 
 base.plt.style.use(PAPER_STYLE_PATH)
 
-OUTPUT_PATH = SCRIPT_DIR / "detector_noise_spectra.png"
+OUTPUT_PATH = FIGS_DIR / "detector_noise_spectra.png"
 DEFAULT_FREQUENCY_BINS = 700
 DEFAULT_COLOR_PERCENTILE_MIN = 5.0
 DEFAULT_COLOR_PERCENTILE_MAX = 99.9

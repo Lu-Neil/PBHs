@@ -34,6 +34,28 @@ def pbh_beta(f0_hz, mc_msun):
     )
 
 
+def round_f0_to_fourier_bin(f0_hz, mc_msun, t_obs, sample_rate):
+    """Round ``f0_hz`` to the closest bin on the resampled Fourier grid."""
+    n_samples = round(sample_rate * t_obs)
+    t_last = (n_samples - 1) / sample_rate
+
+    def tau_span(candidate_f0_hz):
+        beta = pbh_beta(candidate_f0_hz, mc_msun)
+        chirp_factor = 1.0 - (8.0 / 3.0) * beta * t_last
+        if chirp_factor <= 0.0:
+            raise ValueError("Requested signal reaches coalescence during the observation.")
+        return (3.0 / (5.0 * beta)) * (1.0 - chirp_factor ** (5.0 / 8.0))
+
+    fourier_bin = round(f0_hz * tau_span(f0_hz))
+    for _ in range(20):
+        rounded_f0_hz = fourier_bin / tau_span(f0_hz)
+        if np.isclose(rounded_f0_hz, f0_hz, rtol=0.0, atol=1e-14):
+            break
+        f0_hz = rounded_f0_hz
+
+    return rounded_f0_hz
+
+
 def build_signal(mc_msun=1e-1, f0_hz=20.0, t_obs=500.0, sample_rate=128.0):
     n_samples = round(sample_rate * t_obs)
     t = np.arange(n_samples, dtype=float) / sample_rate
@@ -81,9 +103,10 @@ def resampled_spectrum(signal, tau):
 
 def main():
     mc_msun = 1e-1
-    f0_hz = 20.0
+    f0_hz = 40.
     t_obs = 500.0
-    sample_rate = 128.0
+    sample_rate = 256.0
+    f0_hz = round_f0_to_fourier_bin(f0_hz, mc_msun, t_obs, sample_rate)
 
     _, signal, tau, instantaneous_frequency = build_signal(
         mc_msun=mc_msun,
@@ -95,8 +118,9 @@ def main():
     fft_freqs, fft_power = naive_fft_spectrum(signal, sample_rate)
     nufft_freqs, nufft_power = resampled_spectrum(signal, tau)
 
-    f_min = f0_hz - 0.12
-    f_max = instantaneous_frequency[-1] + 0.12
+    offset = 1
+    f_min = f0_hz - offset
+    f_max = instantaneous_frequency[-1] + offset
     fft_mask = (fft_freqs >= f_min) & (fft_freqs <= f_max)
     nufft_mask = (nufft_freqs >= f_min) & (nufft_freqs <= f_max)
 
@@ -108,7 +132,7 @@ def main():
         constrained_layout=True,
     )
 
-    ax_fft.plot(fft_freqs[fft_mask], fft_power[fft_mask], color="tab:blue", lw=1.4)
+    ax_fft.plot(fft_freqs[fft_mask], fft_power[fft_mask])
     # ax_fft.axvspan(
     #     instantaneous_frequency[0],
     #     instantaneous_frequency[-1],
@@ -117,34 +141,36 @@ def main():
     #     linewidth=0,
     #     label="chirp track",
     # )
-    ax_fft.axvline(
-        f0_hz,
-        color="black",
-        ls="--",
-        lw=1.0,
-        # label=rf"$f_0={f0_hz:g}\,\mathrm{{Hz}}$",
-    )
-    ax_fft.set_ylabel("Normalized power")
-    ax_fft.set_title("FFT")
+    # ax_fft.axvline(
+    #     f0_hz,
+    #     color="black",
+    #     ls="--",
+    #     # lw=1.0,
+    #     # label=rf"$f_0={f0_hz:g}\,\mathrm{{Hz}}$",
+    # )
+    ax_fft.set_ylabel("FFT power")
+    # ax_fft.set_ylim(-0.05, 1.05)
+    # ax_fft.set_title("FFT")
     ax_fft.legend(loc="upper right", frameon=False)
     ax_fft.grid(True, alpha=0.25)
 
     ax_nufft.plot(
         nufft_freqs[nufft_mask],
         nufft_power[nufft_mask],
-        color="tab:orange",
-        lw=1.4,
+        color="C1",
+        # lw=1.4,
     )
-    ax_nufft.axvline(
-        f0_hz,
-        color="black",
-        ls="--",
-        lw=1.0,
-        label=rf"Injected $f_0={f0_hz:g}\,\mathrm{{Hz}}$",
-    )
+    # ax_nufft.axvline(
+    #     f0_hz,
+    #     color="black",
+    #     ls="--",
+    #     # lw=1.0,
+    #     label=rf"Injected",
+    # )
     ax_nufft.set_xlabel("Frequency [Hz]")
-    ax_nufft.set_ylabel("Normalized power")
-    ax_nufft.set_title("Non-Uniform FFT")
+    ax_nufft.set_ylabel("NUFFT power")
+    # ax_nufft.set_ylim(-0.05, 1.05)
+    # ax_nufft.set_title("Non-Uniform FFT")
     ax_nufft.legend(loc="upper right", frameon=False)
     ax_nufft.grid(True, alpha=0.25)
 

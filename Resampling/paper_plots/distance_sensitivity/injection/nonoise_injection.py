@@ -15,10 +15,11 @@ from scipy.stats import chi2, ncx2, norm
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
+FIGS_DIR = SCRIPT_DIR / "figs"
 PAPER_PLOTS_DIR = SCRIPT_DIR.parents[1]
 ASD_PATH = PAPER_PLOTS_DIR / "asd.txt"
-OUTPUT_PATH = SCRIPT_DIR / "nonoise_injection.png"
-Z_DISTANCE_OUTPUT_PATH = SCRIPT_DIR / "z_vs_distance_nonoise.png"
+OUTPUT_PATH = FIGS_DIR / "nonoise_injection.png"
+Z_DISTANCE_OUTPUT_PATH = FIGS_DIR / "z_vs_distance_nonoise.png"
 
 if str(PAPER_PLOTS_DIR) not in sys.path:
     sys.path.insert(0, str(PAPER_PLOTS_DIR))

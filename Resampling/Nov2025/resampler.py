@@ -70,7 +70,8 @@ class Resampler(object):
     """
     def __init__(self, nthreads: int = 4, eps: float = 1e-6, *,
                  precision: str = "double", upsampfac: float = 1.25,
-                 fftw_measure: bool = False, **kwws) -> None:
+                 fftw_measure: bool = False, n_modes: int | None = None,
+                 **kwws) -> None:
         """Constructor
 
         Parameters
@@ -90,6 +91,10 @@ class Resampler(object):
             If True, plans use FFTW_MEASURE instead of FFTW_ESTIMATE: slower
             to plan but faster to execute. Plans are cached process-wide,
             so the planning cost is paid once per (size, precision, ...) combo.
+        n_modes : int, optional
+            Number of output Fourier modes. Defaults to the number of input
+            samples. Set this when the desired uniform-``tau`` output grid
+            has a different length from the input time series.
         """
         self.timeseries = None # Replace with dict if multiple detectors
         self.resampled_time = None # Replace with dict if multiple detectors
@@ -98,6 +103,9 @@ class Resampler(object):
         self.precision = precision
         self.upsampfac = upsampfac
         self.fftw_flag = _FFTW_MEASURE if fftw_measure else _FFTW_ESTIMATE
+        if n_modes is not None and n_modes <= 0:
+            raise ValueError(f"n_modes must be positive, got {n_modes}.")
+        self.n_modes = n_modes
 
     @property
     def _complex_dtype(self):
@@ -122,7 +130,7 @@ class Resampler(object):
         """
         signal = self.timeseries
         tau = self.resampled_time
-        bin_no = len(tau)
+        bin_no = self.n_modes if self.n_modes is not None else len(tau)
 
         # Rescale time to [-pi, pi)
         scale = (2*np.pi) / (tau[-1] - tau[0])
@@ -170,7 +178,7 @@ class Resampler(object):
     @property
     def weights_normalized(self) -> npt.NDArray[np.float64]:
         """Returns the normalized Fourier weights such that a pure trig function has power=1 regardless of length"""
-        return self.weights/len(self.weights)
+        return self.weights/len(self.timeseries)
 
     @property
     def power(self) -> npt.NDArray[np.float64]:
@@ -182,7 +190,7 @@ class Resampler(object):
         """Returns the normalized Fourier powers such that a pure trig function has power=1 regardless of length"""
         # the normalization of a nufft and nufft_real are different because
         # of their different lengths
-        return abs(self.weights/len(self.weights))**2
+        return abs(self.weights/len(self.timeseries))**2
 
     @property
     def freq_in_hz(self) -> npt.NDArray[np.float64]:

@@ -22,10 +22,12 @@ _FFTW_PATIENT = 32
 _PLAN_CACHE: dict = {}
 
 
-def _get_or_make_plan(bin_no, *, eps, isign, nthreads, dtype, upsampfac, fftw_flag):
+def _get_or_make_plan(
+    bin_no, *, eps, isign, nthreads, dtype, upsampfac, fftw_flag, n_trans
+):
     """Return a cached finufft.Plan or build (and cache) a new one."""
     key = (bin_no, float(eps), int(isign), int(nthreads), str(dtype),
-           float(upsampfac), int(fftw_flag))
+           float(upsampfac), int(fftw_flag), int(n_trans))
     plan = _PLAN_CACHE.get(key)
     if plan is None:
         plan = finufft.Plan(
@@ -34,6 +36,7 @@ def _get_or_make_plan(bin_no, *, eps, isign, nthreads, dtype, upsampfac, fftw_fl
             isign=isign,
             eps=eps,
             nthreads=nthreads,
+            n_trans=n_trans,
             dtype=dtype,
             upsampfac=upsampfac,
             fftw=fftw_flag,
@@ -70,7 +73,8 @@ class Resampler(object):
     """
     def __init__(self, nthreads: int = 4, eps: float = 1e-6, *,
                  precision: str = "double", upsampfac: float = 1.25,
-                 fftw_measure: bool = False, **kwws) -> None:
+                 fftw_measure: bool = False, n_modes: int | None = None,
+                 allow_two_transforms: bool = False, **kwws) -> None:
         """Constructor
 
         Parameters
@@ -90,6 +94,14 @@ class Resampler(object):
             If True, plans use FFTW_MEASURE instead of FFTW_ESTIMATE: slower
             to plan but faster to execute. Plans are cached process-wide,
             so the planning cost is paid once per (size, precision, ...) combo.
+        n_modes : int, optional
+            Number of output Fourier modes. Defaults to the number of input
+            samples.
+        allow_two_transforms : bool, optional
+            Explicit opt-in for a two-dimensional ``timeseries`` with shape
+            ``(n_trans, N)``. Such an input is submitted to FINUFFT as a
+            batched plan with matching ``n_trans``. The name is retained for
+            backward compatibility with the original two-transform API.
         """
         self.timeseries = None # Replace with dict if multiple detectors
         self.resampled_time = None # Replace with dict if multiple detectors
@@ -98,6 +110,11 @@ class Resampler(object):
         self.precision = precision
         self.upsampfac = upsampfac
         self.fftw_flag = _FFTW_MEASURE if fftw_measure else _FFTW_ESTIMATE
+        if n_modes is not None and n_modes <= 0:
+            raise ValueError(f"n_modes must be positive, got {n_modes}.")
+        self.n_modes = n_modes
+        self.allow_two_transforms = allow_two_transforms
+        self._weights_buffer = None
 
     @property
     def _complex_dtype(self):
@@ -111,22 +128,49 @@ class Resampler(object):
     def _plan_dtype_str(self) -> str:
         return "complex64" if self.precision == "single" else "complex128"
 
-    def nufft(self) -> None:
-        """Performs the NUFFT computing the Fourier frequncies and weights.
-        Uses the (-) sign convention to match np.fft.fft.
+    def _nufft_layout(self):
+        signal = np.asarray(self.timeseries)
+        tau = np.asarray(self.resampled_time)
+        if tau.ndim != 1:
+            raise ValueError("resampled_time must be one-dimensional.")
+        if signal.ndim == 1:
+            n_trans = 1
+        elif signal.ndim == 2:
+            if not self.allow_two_transforms:
+                raise ValueError(
+                    "A two-dimensional timeseries requires "
+                    "allow_two_transforms=True."
+                )
+            if signal.shape[0] <= 0:
+                raise ValueError(
+                    "Two-dimensional timeseries must have shape (n_trans, N) "
+                    "with n_trans > 0."
+                )
+            n_trans = signal.shape[0]
+        else:
+            raise ValueError("timeseries must have shape (N,) or (n_trans, N).")
+        if signal.shape[-1] != tau.size:
+            raise ValueError(
+                "The final timeseries dimension must match resampled_time length."
+            )
 
-        Built on the finufft plan interface (``finufft.Plan``) with
-        multithreading (``self.nthreads``) for maximum throughput. Plans are
-        cached process-wide, so repeated calls with the same problem size
-        and precision skip the planning cost entirely.
+        bin_no = self.n_modes if self.n_modes is not None else tau.size
+        return signal, tau, n_trans, bin_no
+
+    def prepare_nufft(self) -> None:
+        """Prepare a NUFFT plan and set its nonuniform points.
+
+        Call this once when ``resampled_time`` is fixed, then call
+        :meth:`nufft_prepared` for each timeseries with the same shape. The
+        resampled-time array must not be changed in place between those calls.
         """
-        signal = self.timeseries
-        tau = self.resampled_time
-        bin_no = len(tau)
+        signal, tau, n_trans, bin_no = self._nufft_layout()
 
         # Rescale time to [-pi, pi)
         scale = (2*np.pi) / (tau[-1] - tau[0])
-        tau_scaled = scale * (tau - tau[0])
+        tau_scaled = np.ascontiguousarray(
+            scale * (tau - tau[0]), dtype=self._real_dtype
+        )
         bins = np.arange(bin_no) - bin_no//2
         freqs = bins * scale
 
@@ -138,12 +182,54 @@ class Resampler(object):
             dtype=self._plan_dtype_str,
             upsampfac=self.upsampfac,
             fftw_flag=self.fftw_flag,
+            n_trans=n_trans,
         )
-        plan.setpts(np.ascontiguousarray(tau_scaled, dtype=self._real_dtype))
-        weights = plan.execute(np.ascontiguousarray(signal, dtype=self._complex_dtype))
+        plan.setpts(tau_scaled)
+        output_shape = (bin_no,) if n_trans == 1 else (n_trans, bin_no)
+        if (
+            self._weights_buffer is None
+            or self._weights_buffer.shape != output_shape
+            or self._weights_buffer.dtype != self._complex_dtype
+        ):
+            self._weights_buffer = np.empty(output_shape, dtype=self._complex_dtype)
 
+        self._prepared_plan = plan
+        self._prepared_tau = self.resampled_time
+        self._prepared_tau_scaled = tau_scaled
+        self._prepared_signal_shape = signal.shape
+        self._prepared_input_samples = signal.shape[-1]
         self.freqs = freqs
+
+    def nufft_prepared(self) -> None:
+        """Execute a previously prepared NUFFT without calling ``setpts``."""
+        if not hasattr(self, "_prepared_plan"):
+            raise RuntimeError("Call prepare_nufft() before nufft_prepared().")
+        if self.resampled_time is not self._prepared_tau:
+            raise ValueError(
+                "resampled_time changed since prepare_nufft(); call prepare_nufft() again."
+            )
+
+        signal = np.asarray(self.timeseries)
+        if signal.shape != self._prepared_signal_shape:
+            raise ValueError(
+                "timeseries shape changed since prepare_nufft(); call prepare_nufft() again."
+            )
+        weights = self._prepared_plan.execute(
+            np.ascontiguousarray(signal, dtype=self._complex_dtype),
+            out=self._weights_buffer,
+        )
+
         self.weights = weights
+        self._input_samples = self._prepared_input_samples
+
+    def nufft(self) -> None:
+        """Prepare and execute a NUFFT using the (-) sign convention.
+
+        For repeated transforms on fixed nonuniform points, use
+        :meth:`prepare_nufft` once followed by :meth:`nufft_prepared`.
+        """
+        self.prepare_nufft()
+        self.nufft_prepared()
 
     # BE VERY CAREFUL WITH THIS, USES DIFFERENT TAU SIGN CONVENTION + MIGHT HAVE OTHER ISSUES
     # def nufft_real(self) -> None:
@@ -170,7 +256,7 @@ class Resampler(object):
     @property
     def weights_normalized(self) -> npt.NDArray[np.float64]:
         """Returns the normalized Fourier weights such that a pure trig function has power=1 regardless of length"""
-        return self.weights/len(self.weights)
+        return self.weights/self._input_samples
 
     @property
     def power(self) -> npt.NDArray[np.float64]:
@@ -182,7 +268,7 @@ class Resampler(object):
         """Returns the normalized Fourier powers such that a pure trig function has power=1 regardless of length"""
         # the normalization of a nufft and nufft_real are different because
         # of their different lengths
-        return abs(self.weights/len(self.weights))**2
+        return abs(self.weights/self._input_samples)**2
 
     @property
     def freq_in_hz(self) -> npt.NDArray[np.float64]:
@@ -204,4 +290,4 @@ class Resampler(object):
         targets = f0[..., None] + offsets                  # (..., 5)
         indices = np.round((targets - self.freqs[0]) / df).astype(int)
         indices = np.clip(indices, 0, self.freqs.size - 1)
-        return self.weights_normalized[indices]
+        return self.weights_normalized[..., indices]
