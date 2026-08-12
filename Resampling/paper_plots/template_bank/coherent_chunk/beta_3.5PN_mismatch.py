@@ -1,19 +1,15 @@
 """Build a 0PN beta bank that covers finite-duration 3.5PN waveforms.
 
-The carrier frequency is treated as a separately searched coordinate.  At
-each physical ``(f0, Mc)`` point this script compares a TaylorT4 3.5PN target
-with 0PN templates having the same ``f0`` and varying beta.  The acceptable
-template-beta interval is the connected interval around the best-fitting beta
-for which the ASD-weighted mismatch is no larger than the requested limit.
+Edit the experiment settings below, then run
 
-The narrowest acceptable distance from a best-fitting beta to either interval
-edge sets a conservative regular-bank spacing.  Interleaved points in ``f0``
-and physical beta are then used to validate the bank and add any constraints
-missed by the construction grid.  ``grid_safety_factor`` leaves margin for
-the continuum between the sampled parameter-space points.
+    conda run -n PBH python template_bank/coherent_chunk/beta_3.5PN_mismatch.py
+
+At each physical (f0, Mc) point, a TaylorT4 3.5PN signal is compared with 0PN
+templates at the same f0.  The narrowest beta interval satisfying the mismatch
+limit determines a conservative, regularly spaced template bank.  Interleaved
+points validate the final bank.
 """
 
-import argparse
 import csv
 import sys
 from dataclasses import dataclass
@@ -28,13 +24,9 @@ from scipy.optimize import brentq, minimize_scalar
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-PAPER_PLOTS_DIR = SCRIPT_DIR.parents[1]
-ASD_PATH = PAPER_PLOTS_DIR / "asd.txt"
-OUTPUT_PATH = SCRIPT_DIR / "figs" / "beta_3.5PN_mismatch.png"
-BANK_OUTPUT_PATH = SCRIPT_DIR / "figs" / "beta_3.5PN_mismatch_bank.csv"
-
-if str(PAPER_PLOTS_DIR) not in sys.path:
-    sys.path.insert(0, str(PAPER_PLOTS_DIR))
+REPOSITORY_DIR = SCRIPT_DIR.parents[1]
+if str(REPOSITORY_DIR) not in sys.path:
+    sys.path.insert(0, str(REPOSITORY_DIR))
 
 from signal_generators import (  # noqa: E402
     NoiseCurve,
@@ -50,34 +42,32 @@ from template_bank.coherent_chunk.pn_mismatch import (  # noqa: E402
 )
 
 
-@dataclass
-class Beta35PNMismatchConfig:
-    f_min: float = 40.0
-    f_max: float = 60.0
-    mchirp_min: float = 5.0e-4
-    mchirp_max: float = 1.0e-1
-    eta: float = 0.25
-    t_chunk: float = 30.0
-    max_mismatch: float = 0.05
-    sample_rate: float = 512.0
-    zero_pad_factor: int = 4
-    amplitude_frequency_power: float = 2.0 / 3.0
-    n_f0_bank: int = 11
-    n_beta_bank: int = 65
-    grid_safety_factor: float = 0.90
-    max_refinement_rounds: int = 3
+# Experiment settings -------------------------------------------------------
+# These replace the former command-line arguments.  Paths are relative to this
+# file, so the calculation is independent of the directory it is launched from.
+F_MIN_HZ = 40.0
+F_MAX_HZ = 60.0
+MCHIRP_MIN_MSUN = 5.0e-4
+MCHIRP_MAX_MSUN = 1.0e-1
+ETA = 0.25
+T_CHUNK_S = 30.0
+MAX_MISMATCH = 0.05
 
-    @property
-    def beta_min(self):
-        return beta_0pn(self.f_min, self.mchirp_min)
+SAMPLE_RATE_HZ = 512.0
+ZERO_PAD_FACTOR = 4
+AMPLITUDE_FREQUENCY_POWER = 2.0 / 3.0
 
-    @property
-    def beta_max(self):
-        return beta_0pn(self.f_max, self.mchirp_max)
+# Construction nodes are uniform in f0 and physical Newtonian beta.  The bank
+# is checked halfway between these nodes and refined if a point is uncovered.
+N_F0_NODES = 11
+N_BETA_NODES = 65
+GRID_SAFETY_FACTOR = 0.90
+MAX_REFINEMENT_ROUNDS = 3
+PLACEMENT_MISMATCH = GRID_SAFETY_FACTOR * MAX_MISMATCH
 
-    @property
-    def placement_mismatch(self):
-        return self.grid_safety_factor * self.max_mismatch
+ASD_PATH = REPOSITORY_DIR / "asd.txt"
+PLOT_PATH = SCRIPT_DIR / "figs" / "beta_3.5PN_mismatch.png"
+BANK_PATH = SCRIPT_DIR / "figs" / "beta_3.5PN_mismatch_bank.csv"
 
 
 @dataclass(frozen=True)
@@ -101,7 +91,6 @@ class PreparedTarget:
     effective_beta_guess: float
     t: np.ndarray
     dt: float
-    amplitude_frequency_power: float
     n_fft: int
     band: np.ndarray
     weights: np.ndarray
@@ -124,7 +113,7 @@ class PreparedTarget:
                 mchirp_msun=None,
                 beta=beta,
             )
-        return track_to_real_strain(track, self.amplitude_frequency_power)
+        return track_to_real_strain(track, AMPLITUDE_FREQUENCY_POWER)
 
     def mismatch(self, beta):
         if beta < 0.0:
@@ -142,29 +131,33 @@ class PreparedTarget:
         return 1.0 - float(np.clip(match, 0.0, 1.0))
 
 
-def validate_config(config):
-    if config.f_min <= 0.0 or config.f_max <= config.f_min:
-        raise ValueError("frequency range must satisfy 0 < f_min < f_max")
-    if config.mchirp_min <= 0.0 or config.mchirp_max <= config.mchirp_min:
-        raise ValueError("chirp-mass range must satisfy 0 < Mc_min < Mc_max")
-    if not 0.0 < config.eta <= 0.25:
-        raise ValueError("eta must be in the range (0, 0.25]")
-    if config.t_chunk <= 0.0:
-        raise ValueError("t_chunk must be positive")
-    if not 0.0 < config.max_mismatch < 1.0:
-        raise ValueError("max_mismatch must be in the range (0, 1)")
-    if config.sample_rate <= 2.0 * config.f_max:
-        raise ValueError("sample_rate must exceed twice f_max")
-    if config.zero_pad_factor < 1:
-        raise ValueError("zero_pad_factor must be at least 1")
-    if config.n_f0_bank < 2 or config.n_beta_bank < 2:
-        raise ValueError("bank grids must contain at least two points per axis")
-    if not 0.0 < config.grid_safety_factor <= 1.0:
-        raise ValueError("grid_safety_factor must be in the range (0, 1]")
-    if config.max_refinement_rounds < 1:
-        raise ValueError("max_refinement_rounds must be positive")
-    singular_beta = 3.0 / (8.0 * config.t_chunk)
-    if config.beta_max >= singular_beta:
+def validate_settings():
+    """Catch inconsistent experiment settings before the expensive loop."""
+
+    if F_MIN_HZ <= 0.0 or F_MAX_HZ <= F_MIN_HZ:
+        raise ValueError("frequency range must satisfy 0 < F_MIN_HZ < F_MAX_HZ")
+    if MCHIRP_MIN_MSUN <= 0.0 or MCHIRP_MAX_MSUN <= MCHIRP_MIN_MSUN:
+        raise ValueError("chirp-mass range must be positive and increasing")
+    if not 0.0 < ETA <= 0.25:
+        raise ValueError("ETA must be in the range (0, 0.25]")
+    if T_CHUNK_S <= 0.0:
+        raise ValueError("T_CHUNK_S must be positive")
+    if not 0.0 < MAX_MISMATCH < 1.0:
+        raise ValueError("MAX_MISMATCH must be in the range (0, 1)")
+    if SAMPLE_RATE_HZ <= 2.0 * F_MAX_HZ:
+        raise ValueError("SAMPLE_RATE_HZ must exceed twice F_MAX_HZ")
+    if ZERO_PAD_FACTOR < 1:
+        raise ValueError("ZERO_PAD_FACTOR must be at least 1")
+    if N_F0_NODES < 2 or N_BETA_NODES < 2:
+        raise ValueError("construction grids need at least two nodes per axis")
+    if not 0.0 < GRID_SAFETY_FACTOR <= 1.0:
+        raise ValueError("GRID_SAFETY_FACTOR must be in the range (0, 1]")
+    if MAX_REFINEMENT_ROUNDS < 1:
+        raise ValueError("MAX_REFINEMENT_ROUNDS must be positive")
+
+    beta_max = beta_0pn(F_MAX_HZ, MCHIRP_MAX_MSUN)
+    singular_beta = 3.0 / (8.0 * T_CHUNK_S)
+    if beta_max >= singular_beta:
         raise ValueError("the 0PN beta range reaches coalescence within t_chunk")
 
 
@@ -175,67 +168,62 @@ def mchirp_from_beta(beta, f0_hz):
     return float((beta / reference_beta) ** (3.0 / 5.0))
 
 
-def physical_parameter_grid(config):
+def physical_parameter_grid():
     """Yield the construction grid, uniform in f0 and physical beta."""
 
-    for f0_hz in np.linspace(config.f_min, config.f_max, config.n_f0_bank):
+    for f0_hz in np.linspace(F_MIN_HZ, F_MAX_HZ, N_F0_NODES):
         beta_values = np.linspace(
-            beta_0pn(f0_hz, config.mchirp_min),
-            beta_0pn(f0_hz, config.mchirp_max),
-            config.n_beta_bank,
+            beta_0pn(f0_hz, MCHIRP_MIN_MSUN),
+            beta_0pn(f0_hz, MCHIRP_MAX_MSUN),
+            N_BETA_NODES,
         )
         for beta in beta_values:
             yield float(f0_hz), mchirp_from_beta(beta, f0_hz)
 
 
-def validation_parameter_grid(config):
+def validation_parameter_grid():
     """Yield cell centres and boundary midpoints of the construction grid."""
 
-    f0_nodes = np.linspace(config.f_min, config.f_max, config.n_f0_bank)
+    f0_nodes = np.linspace(F_MIN_HZ, F_MAX_HZ, N_F0_NODES)
     f0_midpoints = 0.5 * (f0_nodes[:-1] + f0_nodes[1:])
-    beta_fractions = (np.arange(config.n_beta_bank - 1) + 0.5) / (
-        config.n_beta_bank - 1
-    )
+    beta_fractions = (np.arange(N_BETA_NODES - 1) + 0.5) / (N_BETA_NODES - 1)
 
     # Cell centres check simultaneous interpolation in both coordinates.
     for f0_hz in f0_midpoints:
-        beta_low = beta_0pn(f0_hz, config.mchirp_min)
-        beta_high = beta_0pn(f0_hz, config.mchirp_max)
+        beta_low = beta_0pn(f0_hz, MCHIRP_MIN_MSUN)
+        beta_high = beta_0pn(f0_hz, MCHIRP_MAX_MSUN)
         for fraction in beta_fractions:
             beta = beta_low + fraction * (beta_high - beta_low)
             yield float(f0_hz), mchirp_from_beta(beta, f0_hz)
 
     # Boundary midpoints make sure the four edges are not missed.
-    for f0_hz in (config.f_min, config.f_max):
-        beta_low = beta_0pn(f0_hz, config.mchirp_min)
-        beta_high = beta_0pn(f0_hz, config.mchirp_max)
+    for f0_hz in (F_MIN_HZ, F_MAX_HZ):
+        beta_low = beta_0pn(f0_hz, MCHIRP_MIN_MSUN)
+        beta_high = beta_0pn(f0_hz, MCHIRP_MAX_MSUN)
         for fraction in beta_fractions:
             beta = beta_low + fraction * (beta_high - beta_low)
             yield float(f0_hz), mchirp_from_beta(beta, f0_hz)
 
     for f0_hz in f0_midpoints:
-        yield float(f0_hz), config.mchirp_min
-        yield float(f0_hz), config.mchirp_max
+        yield float(f0_hz), MCHIRP_MIN_MSUN
+        yield float(f0_hz), MCHIRP_MAX_MSUN
 
 
-def prepare_target(f0_hz, mchirp_msun, config, noise, t, dt):
+def prepare_target(f0_hz, mchirp_msun, noise, t, dt):
     model = PNComparisonWaveformModel(
         f0_hz,
         mchirp_msun,
-        config.eta,
-        config.t_chunk,
+        ETA,
+        T_CHUNK_S,
     )
     _, target_track = model.tracks(t)
-    if np.max(target_track.frequency) >= 0.5 * config.sample_rate:
+    if np.max(target_track.frequency) >= 0.5 * SAMPLE_RATE_HZ:
         raise ValueError(
             "a 3.5PN target reaches the Nyquist frequency within t_chunk"
         )
-    target = track_to_real_strain(
-        target_track,
-        config.amplitude_frequency_power,
-    )
+    target = track_to_real_strain(target_track, AMPLITUDE_FREQUENCY_POWER)
 
-    n_fft = max(target.size, config.zero_pad_factor * target.size)
+    n_fft = ZERO_PAD_FACTOR * target.size
     frequency = np.fft.rfftfreq(n_fft, dt)
     band = (
         (frequency > 0.0)
@@ -253,7 +241,7 @@ def prepare_target(f0_hz, mchirp_msun, config, noise, t, dt):
         raise ValueError("3.5PN target norm is not positive")
 
     effective_beta_guess = model.beta * float(
-        taylor_t4_factor_35pn(model.phase_model.v_start, config.eta)
+        taylor_t4_factor_35pn(model.phase_model.v_start, ETA)
     )
     return PreparedTarget(
         f0_hz=float(f0_hz),
@@ -262,7 +250,6 @@ def prepare_target(f0_hz, mchirp_msun, config, noise, t, dt):
         effective_beta_guess=effective_beta_guess,
         t=t,
         dt=dt,
-        amplitude_frequency_power=config.amplitude_frequency_power,
         n_fft=n_fft,
         band=band,
         weights=weights,
@@ -271,13 +258,11 @@ def prepare_target(f0_hz, mchirp_msun, config, noise, t, dt):
     )
 
 
-def best_fitting_beta(target, config):
+def best_fitting_beta(target):
     """Return the local best-fitting effective beta and its mismatch."""
 
-    singular_beta = 3.0 / (8.0 * config.t_chunk)
-    phase_scale = 4.0 / (
-        np.pi * target.f0_hz * config.t_chunk**2
-    )
+    singular_beta = 3.0 / (8.0 * T_CHUNK_S)
+    phase_scale = 4.0 / (np.pi * target.f0_hz * T_CHUNK_S**2)
     search_half_width = max(
         0.03 * target.physical_beta,
         phase_scale,
@@ -306,16 +291,16 @@ def best_fitting_beta(target, config):
     return min(candidates, key=lambda item: item[1])
 
 
-def mismatch_boundary(target, best_beta, fitting_mismatch, limit, direction, config):
+def mismatch_boundary(target, best_beta, fitting_mismatch, limit, direction):
     """Find one edge of the connected acceptable interval around best_beta."""
 
     if direction not in (-1.0, 1.0):
         raise ValueError("direction must be -1 or +1")
-    singular_beta = 3.0 / (8.0 * config.t_chunk)
+    singular_beta = 3.0 / (8.0 * T_CHUNK_S)
     domain_edge = 0.0 if direction < 0.0 else 0.999999 * singular_beta
     remaining_mismatch = max(limit - fitting_mismatch, np.finfo(float).eps)
     mismatch_scale = np.sqrt(45.0 * remaining_mismatch / 2.0) / (
-        np.pi * target.f0_hz * config.t_chunk**2
+        np.pi * target.f0_hz * T_CHUNK_S**2
     )
     step = max(mismatch_scale / 4.0, 1.0e-12)
     inside = best_beta
@@ -346,10 +331,10 @@ def mismatch_boundary(target, best_beta, fitting_mismatch, limit, direction, con
     raise RuntimeError("could not find an acceptable-beta interval boundary")
 
 
-def acceptable_beta_interval(target, config, mismatch_limit=None):
+def acceptable_beta_interval(target, mismatch_limit=None):
     if mismatch_limit is None:
-        mismatch_limit = config.placement_mismatch
-    best_beta, fitting_mismatch = best_fitting_beta(target, config)
+        mismatch_limit = PLACEMENT_MISMATCH
+    best_beta, fitting_mismatch = best_fitting_beta(target)
     if fitting_mismatch >= mismatch_limit:
         raise RuntimeError(
             "the 0PN family cannot cover a 3.5PN waveform within the requested "
@@ -362,7 +347,6 @@ def acceptable_beta_interval(target, config, mismatch_limit=None):
         fitting_mismatch,
         mismatch_limit,
         -1.0,
-        config,
     )
     beta_high = mismatch_boundary(
         target,
@@ -370,7 +354,6 @@ def acceptable_beta_interval(target, config, mismatch_limit=None):
         fitting_mismatch,
         mismatch_limit,
         1.0,
-        config,
     )
     return AcceptableBetaInterval(
         f0_hz=target.f0_hz,
@@ -383,7 +366,7 @@ def acceptable_beta_interval(target, config, mismatch_limit=None):
     )
 
 
-def conservative_interval_cover(intervals, config):
+def conservative_interval_cover(intervals):
     """Return a regular bank covered by every sampled interval radius.
 
     Interval edges at beta=0 or at the formal 0PN singularity are truncated
@@ -391,7 +374,7 @@ def conservative_interval_cover(intervals, config):
     do not constrain the interior template spacing.
     """
 
-    singular_beta = 3.0 / (8.0 * config.t_chunk)
+    singular_beta = 3.0 / (8.0 * T_CHUNK_S)
     lower_radii = [
         interval.best_beta - interval.beta_low
         for interval in intervals
@@ -427,30 +410,29 @@ def nearest_template_mismatch(target, betas):
     return min(values)
 
 
-def build_beta_bank(config, noise):
-    validate_config(config)
-    t, dt = time_samples(config.t_chunk, config.sample_rate)
+def build_beta_bank(noise):
+    t, dt = time_samples(T_CHUNK_S, SAMPLE_RATE_HZ)
     intervals = []
-    for f0_hz, mchirp_msun in physical_parameter_grid(config):
-        target = prepare_target(f0_hz, mchirp_msun, config, noise, t, dt)
-        intervals.append(acceptable_beta_interval(target, config))
+    for f0_hz, mchirp_msun in physical_parameter_grid():
+        target = prepare_target(f0_hz, mchirp_msun, noise, t, dt)
+        intervals.append(acceptable_beta_interval(target))
 
-    betas = conservative_interval_cover(intervals, config)
+    betas = conservative_interval_cover(intervals)
     return betas, intervals
 
 
-def validate_and_refine_bank(betas, intervals, config, noise):
+def validate_and_refine_bank(betas, intervals, noise):
     """Validate at interleaved points and add uncovered intervals if needed."""
 
-    t, dt = time_samples(config.t_chunk, config.sample_rate)
-    validation_points = tuple(validation_parameter_grid(config))
+    t, dt = time_samples(T_CHUNK_S, SAMPLE_RATE_HZ)
+    validation_points = tuple(validation_parameter_grid())
     last_results = None
 
-    for refinement_round in range(config.max_refinement_rounds):
+    for refinement_round in range(MAX_REFINEMENT_ROUNDS):
         results = []
         missed_targets = []
         for f0_hz, mchirp_msun in validation_points:
-            target = prepare_target(f0_hz, mchirp_msun, config, noise, t, dt)
+            target = prepare_target(f0_hz, mchirp_msun, noise, t, dt)
             mismatch, template_index = nearest_template_mismatch(target, betas)
             results.append(
                 (
@@ -461,7 +443,7 @@ def validate_and_refine_bank(betas, intervals, config, noise):
                     template_index,
                 )
             )
-            if mismatch > config.max_mismatch:
+            if mismatch > MAX_MISMATCH:
                 missed_targets.append(target)
 
         last_results = np.asarray(results, dtype=float)
@@ -469,8 +451,8 @@ def validate_and_refine_bank(betas, intervals, config, noise):
             return betas, intervals, last_results, refinement_round
 
         for target in missed_targets:
-            intervals.append(acceptable_beta_interval(target, config))
-        betas = conservative_interval_cover(intervals, config)
+            intervals.append(acceptable_beta_interval(target))
+        betas = conservative_interval_cover(intervals)
 
     worst = last_results[np.argmax(last_results[:, 1])]
     raise RuntimeError(
@@ -488,7 +470,7 @@ def write_bank_csv(path, betas):
         writer.writerows(enumerate(betas))
 
 
-def plot_bank(betas, validation_results, config):
+def plot_bank(betas, validation_results):
     fig, (ax_bank, ax_mismatch) = plt.subplots(
         2,
         1,
@@ -500,8 +482,8 @@ def plot_bank(betas, validation_results, config):
     ax_bank.set_xlabel("Template number")
     ax_bank.set_ylabel(r"Effective template $\beta$")
     ax_bank.set_title(
-        rf"3.5PN $\rightarrow$ 0PN bank, $T_{{\rm coh}}={config.t_chunk:g}$ s, "
-        rf"maximum mismatch $={config.max_mismatch:g}$"
+        rf"3.5PN $\rightarrow$ 0PN bank, $T_{{\rm coh}}={T_CHUNK_S:g}$ s, "
+        rf"maximum mismatch $={MAX_MISMATCH:g}$"
     )
     ax_bank.grid(True, which="both", alpha=0.25)
 
@@ -513,7 +495,7 @@ def plot_bank(betas, validation_results, config):
         cmap="viridis",
         rasterized=True,
     )
-    ax_mismatch.axhline(config.max_mismatch, color="black", ls="--", lw=1.0)
+    ax_mismatch.axhline(MAX_MISMATCH, color="black", ls="--", lw=1.0)
     ax_mismatch.set_xscale("log")
     ax_mismatch.set_xlabel(r"Physical Newtonian $\beta(f_0,M_c)$")
     ax_mismatch.set_ylabel("Nearest-template mismatch")
@@ -523,107 +505,7 @@ def plot_bank(betas, validation_results, config):
     return fig
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(
-        description=(
-            "Build an effective-beta 0PN template bank that covers TaylorT4 "
-            "3.5PN waveforms at a fixed coherent duration."
-        )
-    )
-    parser.add_argument("--f-min", type=float, default=Beta35PNMismatchConfig.f_min)
-    parser.add_argument("--f-max", type=float, default=Beta35PNMismatchConfig.f_max)
-    parser.add_argument(
-        "--mchirp-min",
-        "--mc-min",
-        dest="mchirp_min",
-        type=float,
-        default=Beta35PNMismatchConfig.mchirp_min,
-    )
-    parser.add_argument(
-        "--mchirp-max",
-        "--mc-max",
-        dest="mchirp_max",
-        type=float,
-        default=Beta35PNMismatchConfig.mchirp_max,
-    )
-    parser.add_argument("--eta", type=float, default=Beta35PNMismatchConfig.eta)
-    parser.add_argument(
-        "--t-chunk",
-        "--t-coh",
-        dest="t_chunk",
-        type=float,
-        default=Beta35PNMismatchConfig.t_chunk,
-    )
-    parser.add_argument(
-        "--max-mismatch",
-        type=float,
-        default=Beta35PNMismatchConfig.max_mismatch,
-    )
-    parser.add_argument(
-        "--sample-rate",
-        type=float,
-        default=Beta35PNMismatchConfig.sample_rate,
-    )
-    parser.add_argument(
-        "--zero-pad-factor",
-        type=int,
-        default=Beta35PNMismatchConfig.zero_pad_factor,
-    )
-    parser.add_argument(
-        "--amplitude-frequency-power",
-        type=float,
-        default=Beta35PNMismatchConfig.amplitude_frequency_power,
-    )
-    parser.add_argument(
-        "--n-f0-bank",
-        type=int,
-        default=Beta35PNMismatchConfig.n_f0_bank,
-    )
-    parser.add_argument(
-        "--n-beta-bank",
-        type=int,
-        default=Beta35PNMismatchConfig.n_beta_bank,
-    )
-    parser.add_argument(
-        "--grid-safety-factor",
-        type=float,
-        default=Beta35PNMismatchConfig.grid_safety_factor,
-    )
-    parser.add_argument(
-        "--max-refinement-rounds",
-        type=int,
-        default=Beta35PNMismatchConfig.max_refinement_rounds,
-    )
-    parser.add_argument("--asd", type=Path, default=ASD_PATH)
-    parser.add_argument("--output", type=Path, default=OUTPUT_PATH)
-    parser.add_argument("--bank-output", type=Path, default=BANK_OUTPUT_PATH)
-    return parser.parse_args()
-
-
-def config_from_args(args):
-    return Beta35PNMismatchConfig(
-        f_min=args.f_min,
-        f_max=args.f_max,
-        mchirp_min=args.mchirp_min,
-        mchirp_max=args.mchirp_max,
-        eta=args.eta,
-        t_chunk=args.t_chunk,
-        max_mismatch=args.max_mismatch,
-        sample_rate=args.sample_rate,
-        zero_pad_factor=args.zero_pad_factor,
-        amplitude_frequency_power=args.amplitude_frequency_power,
-        n_f0_bank=args.n_f0_bank,
-        n_beta_bank=args.n_beta_bank,
-        grid_safety_factor=args.grid_safety_factor,
-        max_refinement_rounds=args.max_refinement_rounds,
-    )
-
-
 def print_summary(
-    config,
-    asd_path,
-    output_path,
-    bank_output_path,
     betas,
     intervals,
     validation_results,
@@ -633,64 +515,55 @@ def print_summary(
     worst = validation_results[worst_index]
     worst_fitting = max(intervals, key=lambda item: item.fitting_mismatch)
     spacings = np.diff(betas)
-    lines = [
-        "3.5PN-covered effective-beta bank",
-        f"f0 range: {config.f_min:g} Hz to {config.f_max:g} Hz",
-        (
-            f"Mc range: {config.mchirp_min:.6e} Msun to "
-            f"{config.mchirp_max:.6e} Msun"
-        ),
-        f"eta: {config.eta:g}",
-        f"T_chunk: {config.t_chunk:g} s",
-        f"max_mismatch: {config.max_mismatch:.12g}",
-        f"placement mismatch: {config.placement_mismatch:.12g}",
-        f"construction grid: {config.n_f0_bank} x {config.n_beta_bank}",
-        f"validation points: {validation_results.shape[0]}",
-        f"refinement rounds used: {refinement_rounds}",
-        f"templates required: {betas.size}",
-        f"template beta range: {betas[0]:.12e} to {betas[-1]:.12e}",
-        (
-            "maximum fitting mismatch: "
-            f"{worst_fitting.fitting_mismatch:.12e} at "
-            f"f0={worst_fitting.f0_hz:g} Hz, "
-            f"Mc={worst_fitting.mchirp_msun:.6e} Msun"
-        ),
-        (
-            "maximum validation mismatch: "
-            f"{worst[1]:.12e} at f0={worst[2]:g} Hz, "
-            f"Mc={worst[3]:.6e} Msun"
-        ),
-        f"asd: {asd_path}",
-        f"bank: {bank_output_path}",
-        f"plot: {output_path}",
-    ]
+    print("3.5PN-covered effective-beta bank")
+    print(f"f0 range: {F_MIN_HZ:g} Hz to {F_MAX_HZ:g} Hz")
+    print(
+        f"Mc range: {MCHIRP_MIN_MSUN:.6e} Msun to "
+        f"{MCHIRP_MAX_MSUN:.6e} Msun"
+    )
+    print(f"eta: {ETA:g}")
+    print(f"T_chunk: {T_CHUNK_S:g} s")
+    print(f"max_mismatch: {MAX_MISMATCH:.12g}")
+    print(f"placement mismatch: {PLACEMENT_MISMATCH:.12g}")
+    print(f"construction grid: {N_F0_NODES} x {N_BETA_NODES}")
+    print(f"validation points: {validation_results.shape[0]}")
+    print(f"refinement rounds used: {refinement_rounds}")
+    print(f"templates required: {betas.size}")
+    print(f"template beta range: {betas[0]:.12e} to {betas[-1]:.12e}")
     if spacings.size:
-        lines.insert(
-            12,
+        print(
             f"template spacing range: {spacings.min():.12e} to "
-            f"{spacings.max():.12e}",
+            f"{spacings.max():.12e}"
         )
-    print("\n".join(lines))
+    print(
+        "maximum fitting mismatch: "
+        f"{worst_fitting.fitting_mismatch:.12e} at "
+        f"f0={worst_fitting.f0_hz:g} Hz, "
+        f"Mc={worst_fitting.mchirp_msun:.6e} Msun"
+    )
+    print(
+        "maximum validation mismatch: "
+        f"{worst[1]:.12e} at f0={worst[2]:g} Hz, "
+        f"Mc={worst[3]:.6e} Msun"
+    )
+    print(f"asd: {ASD_PATH}")
+    print(f"bank: {BANK_PATH}")
+    print(f"plot: {PLOT_PATH}")
 
 
 def main():
-    args = parse_args()
-    config = config_from_args(args)
-    noise = NoiseCurve.from_asd_file(args.asd)
-    betas, intervals = build_beta_bank(config, noise)
+    validate_settings()
+    noise = NoiseCurve.from_asd_file(ASD_PATH)
+    betas, intervals = build_beta_bank(noise)
     betas, intervals, validation_results, refinement_rounds = (
-        validate_and_refine_bank(betas, intervals, config, noise)
+        validate_and_refine_bank(betas, intervals, noise)
     )
 
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    fig = plot_bank(betas, validation_results, config)
-    fig.savefig(args.output, dpi=220)
-    write_bank_csv(args.bank_output, betas)
+    PLOT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    fig = plot_bank(betas, validation_results)
+    fig.savefig(PLOT_PATH, dpi=220)
+    write_bank_csv(BANK_PATH, betas)
     print_summary(
-        config,
-        args.asd,
-        args.output,
-        args.bank_output,
         betas,
         intervals,
         validation_results,

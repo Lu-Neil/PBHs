@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (TeX Live 2025) (preloaded format=pdflatex 2025.9.2)  31 JUL 2026 16:37
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (TeX Live 2025) (preloaded format=pdflatex 2025.9.2)  11 AUG 2026 23:02
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -791,27 +791,34 @@ See the caption package documentation for explanation.
 \c@continuedfloat=\count343
 Package caption Info: hyperref package is loaded.
 Package caption Info: hypcap package is loaded.
-) (/usr/local/texlive/2025/texmf-dist/tex/latex/microtype/microtype.sty
+) (/usr/local/texlive/2025/texmf-dist/tex/latex/multirow/multirow.sty
+Package: multirow 2024/11/12 v2.9 Span multiple rows of a table
+\multirow@colwidth=\skip60
+\multirow@cntb=\count344
+\multirow@dima=\skip61
+\bigstrutjot=\dimen285
+)
+(/usr/local/texlive/2025/texmf-dist/tex/latex/microtype/microtype.sty
 Package: microtype 2025/07/09 v3.2b Micro-typographical refinements (RS)
 \MT@toks=\toks43
 \MT@tempbox=\box85
-\MT@count=\count344
+\MT@count=\count345
 LaTeX Info: Redefining \noprotrusionifhmode on input line 1087.
 LaTeX Info: Redefining \leftprotrusion on input line 1088.
 \MT@prot@toks=\toks44
 LaTeX Info: Redefining \rightprotrusion on input line 1107.
 LaTeX Info: Redefining \textls on input line 1449.
-\MT@outer@kern=\dimen285
+\MT@outer@kern=\dimen286
 LaTeX Info: Redefining \microtypecontext on input line 2053.
 LaTeX Info: Redefining \textmicrotypecontext on input line 2070.
-\MT@listname@count=\count345
+\MT@listname@count=\count346
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/microtype/microtype-pdftex.def
 File: microtype-pdftex.def 2025/07/09 v3.2b Definitions specific to pdftex (RS)
 
 LaTeX Info: Redefining \lsstyle on input line 944.
 LaTeX Info: Redefining \lslig on input line 944.
-\MT@outer@space=\skip60
+\MT@outer@space=\skip62
 )
 Package microtype Info: Loading configuration file microtype.cfg.
 
@@ -823,7 +830,7 @@ LaTeX Info: Redefining \microtypesetup on input line 3065.
 (/usr/local/texlive/2025/texmf-dist/tex/generic/babel/babel.sty
 Package: babel 2025/08/03 v25.12 The multilingual framework for LuaLaTeX, pdfLa
 TeX and XeLaTeX
-\babel@savecnt=\count346
+\babel@savecnt=\count347
 LaTeX Encoding Info:    Redeclaring text command \ij (encoding OT1) on input li
 ne 2045.
 LaTeX Encoding Info:    Redeclaring text command \IJ (encoding OT1) on input li
@@ -838,12 +845,12 @@ LaTeX Encoding Info:    Ignoring declaration for text command \IJ (encoding ?)
 on input line 2053.
 LaTeX Encoding Info:    Ignoring declaration for text command \SS (encoding ?) 
 on input line 2078.
-\U@D=\dimen286
+\U@D=\dimen287
 \l@unhyphenated=\language90
 
 (/usr/local/texlive/2025/texmf-dist/tex/generic/babel/txtbabel.def)
 \bbl@readstream=\read4
-\bbl@dirlevel=\count347
+\bbl@dirlevel=\count348
 
 (/usr/local/texlive/2025/texmf-dist/tex/generic/babel-english/english.ldf
 Language: english 2017/06/06 v3.3r English support from the babel system
@@ -861,74 +868,75 @@ Package babel Info: Hyphen rules for 'newzealand' set to \l@ukenglish
 (babel)             (\language22). Reported on input line 108.
 )) (/usr/local/texlive/2025/texmf-dist/tex/latex/blindtext/blindtext.sty
 Package: blindtext 2012/01/06 V2.0 blindtext-Package
-\c@blindtext=\count348
-\c@Blindtext=\count349
-\c@blind@countparstart=\count350
-\blind@countxx=\count351
-\blindtext@numBlindtext=\count352
-\blind@countyy=\count353
-\c@blindlist=\count354
-\c@blindlistlevel=\count355
-\c@blindlist@level=\count356
-\blind@listitem=\count357
-\c@blind@listcount=\count358
-\c@blind@levelcount=\count359
-\blind@mathformula=\count360
-\blind@Mathformula=\count361
-\c@blind@randomcount=\count362
-\c@blind@randommax=\count363
-\c@blind@pangramcount=\count364
-\c@blind@pangrammax=\count365
+\c@blindtext=\count349
+\c@Blindtext=\count350
+\c@blind@countparstart=\count351
+\blind@countxx=\count352
+\blindtext@numBlindtext=\count353
+\blind@countyy=\count354
+\c@blindlist=\count355
+\c@blindlistlevel=\count356
+\c@blindlist@level=\count357
+\blind@listitem=\count358
+\c@blind@listcount=\count359
+\c@blind@levelcount=\count360
+\blind@mathformula=\count361
+\blind@Mathformula=\count362
+\c@blind@randomcount=\count363
+\c@blind@randommax=\count364
+\c@blind@pangramcount=\count365
+\c@blind@pangrammax=\count366
 )
-\enitdp@todolist=\count366
+\enitdp@todolist=\count367
 Class revtex4-2 Info: Unrecognized LaTeX tabular. Please update this document c
-lass! (Proceeding with fingers crossed.) on input line 109.
-Class revtex4-2 Info: cite was not loaded (OK!) on input line 109.
-Class revtex4-2 Info: mcite was not loaded (OK!) on input line 109.
-Class revtex4-2 Info: multicol was not loaded (OK!) on input line 109.
-LaTeX Font Info:    Trying to load font information for T1+lmr on input line 10
-9.
+lass! (Proceeding with fingers crossed.) on input line 110.
+Class revtex4-2 Info: cite was not loaded (OK!) on input line 110.
+Class revtex4-2 Info: mcite was not loaded (OK!) on input line 110.
+Class revtex4-2 Info: multicol was not loaded (OK!) on input line 110.
+LaTeX Font Info:    Trying to load font information for T1+lmr on input line 11
+0.
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/lm/t1lmr.fd
 File: t1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 (/usr/local/texlive/2025/texmf-dist/tex/latex/l3backend/l3backend-pdftex.def
 File: l3backend-pdftex.def 2025-06-09 L3 backend support: PDF output (pdfTeX)
-\l__color_backend_stack_int=\count367
+\l__color_backend_stack_int=\count368
 )
-No file main.aux.
+(./main.aux)
 \openout1 = `main.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 109.
-LaTeX Font Info:    ... okay on input line 109.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 109.
-LaTeX Font Info:    ... okay on input line 109.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 109.
-LaTeX Font Info:    ... okay on input line 109.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 109.
-LaTeX Font Info:    ... okay on input line 109.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 109.
-LaTeX Font Info:    ... okay on input line 109.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 109.
-LaTeX Font Info:    ... okay on input line 109.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 109.
-LaTeX Font Info:    ... okay on input line 109.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 109.
-LaTeX Font Info:    ... okay on input line 109.
-LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 109.
-LaTeX Font Info:    ... okay on input line 109.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 110.
+LaTeX Font Info:    ... okay on input line 110.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 110.
+LaTeX Font Info:    ... okay on input line 110.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 110.
+LaTeX Font Info:    ... okay on input line 110.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 110.
+LaTeX Font Info:    ... okay on input line 110.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 110.
+LaTeX Font Info:    ... okay on input line 110.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 110.
+LaTeX Font Info:    ... okay on input line 110.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 110.
+LaTeX Font Info:    ... okay on input line 110.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 110.
+LaTeX Font Info:    ... okay on input line 110.
+LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 110.
+LaTeX Font Info:    ... okay on input line 110.
+
 (/usr/local/texlive/2025/texmf-dist/tex/context/base/mkii/supp-pdf.mkii
 [Loading MPS to PDF converter (version 2006.09.02).]
-\scratchcounter=\count368
-\scratchdimen=\dimen287
+\scratchcounter=\count369
+\scratchdimen=\dimen288
 \scratchbox=\box86
-\nofMPsegments=\count369
-\nofMParguments=\count370
+\nofMPsegments=\count370
+\nofMParguments=\count371
 \everyMPshowfont=\toks45
-\MPscratchCnt=\count371
-\MPscratchDim=\dimen288
-\MPnumerator=\count372
-\makeMPintoPDFobject=\count373
+\MPscratchCnt=\count372
+\MPscratchDim=\dimen289
+\MPnumerator=\count373
+\makeMPintoPDFobject=\count374
 \everyMPtoPDFconversion=\toks46
 ) (/usr/local/texlive/2025/texmf-dist/tex/latex/epstopdf-pkg/epstopdf-base.sty
 Package: epstopdf-base 2020-01-24 v2.11 Base part for package epstopdf
@@ -939,19 +947,21 @@ Package epstopdf-base Info: Redefining graphics rule for `.eps' on input line 4
 File: epstopdf-sys.cfg 2010/07/13 v1.3 Configuration of (r)epstopdf for TeX Liv
 e
 ))
-Package hyperref Info: Link coloring ON on input line 109.
+Package hyperref Info: Link coloring ON on input line 110.
+
+(./main.out) (./main.out)
 \@outlinefile=\write5
 \openout5 = `main.out'.
 
 Package caption Info: Begin \AtBeginDocument code.
 Package caption Info: End \AtBeginDocument code.
-LaTeX Info: Redefining \microtypecontext on input line 109.
-Package microtype Info: Applying patch `item' on input line 109.
-Package microtype Info: Applying patch `toc' on input line 109.
-Package microtype Info: Applying patch `eqnum' on input line 109.
-Package microtype Info: Applying patch `footnote' on input line 109.
-Package microtype Info: Applying patch `verbatim' on input line 109.
-LaTeX Info: Redefining \microtypesetup on input line 109.
+LaTeX Info: Redefining \microtypecontext on input line 110.
+Package microtype Info: Applying patch `item' on input line 110.
+Package microtype Info: Applying patch `toc' on input line 110.
+Package microtype Info: Applying patch `eqnum' on input line 110.
+Package microtype Info: Applying patch `footnote' on input line 110.
+Package microtype Info: Applying patch `verbatim' on input line 110.
+LaTeX Info: Redefining \microtypesetup on input line 110.
 Package microtype Info: Generating PDF output.
 Package microtype Info: Character protrusion enabled (level 2).
 Package microtype Info: Using default protrusion set `alltext'.
@@ -967,40 +977,40 @@ Package microtype Info: No adjustment of character kerning.
 File: mt-cmr.cfg 2013/05/19 v2.2 microtype config. file: Computer Modern Roman 
 (RS)
 )
-Class revtex4-2 Info: Taking \maketitle back from hyperref on input line 109.
+Class revtex4-2 Info: Taking \maketitle back from hyperref on input line 110.
 \openout3 = `mainNotes.bib'.
 
 LaTeX Font Info:    Trying to load font information for OT1+lmr on input line 1
-34.
+40.
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/lm/ot1lmr.fd
 File: ot1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    Trying to load font information for OML+lmm on input line 1
-34.
+40.
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/lm/omllmm.fd
 File: omllmm.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    Trying to load font information for OMS+lmsy on input line 
-134.
+140.
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/lm/omslmsy.fd
 File: omslmsy.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    Trying to load font information for OMX+lmex on input line 
-134.
+140.
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/lm/omxlmex.fd
 File: omxlmex.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <10> on input line 134.
+(Font)              <9> on input line 140.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <7> on input line 134.
+(Font)              <6> on input line 140.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <5> on input line 134.
-LaTeX Font Info:    Trying to load font information for U+msa on input line 134
+(Font)              <5> on input line 140.
+LaTeX Font Info:    Trying to load font information for U+msa on input line 140
 .
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/amsfonts/umsa.fd
@@ -1009,7 +1019,7 @@ File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 (/usr/local/texlive/2025/texmf-dist/tex/latex/microtype/mt-msa.cfg
 File: mt-msa.cfg 2006/02/04 v1.1 microtype config. file: AMS symbols (a) (RS)
 )
-LaTeX Font Info:    Trying to load font information for U+msb on input line 134
+LaTeX Font Info:    Trying to load font information for U+msb on input line 140
 .
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/amsfonts/umsb.fd
@@ -1019,169 +1029,155 @@ File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 File: mt-msb.cfg 2005/06/01 v1.0 microtype config. file: AMS symbols (b) (RS)
 )
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <9> on input line 134.
+(Font)              <10> on input line 151.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <6> on input line 134.
+(Font)              <7> on input line 151.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <8> on input line 134.
+(Font)              <8> on input line 151.
 
 
 Package natbib Warning: Citation `LIGOScientific:2016aoc' on page 1 undefined o
-n input line 142.
+n input line 159.
 
 
 Package natbib Warning: Citation `LIGOScientific:2014pky' on page 1 undefined o
-n input line 142.
+n input line 159.
 
 
 Package natbib Warning: Citation `VIRGO:2014yos' on page 1 undefined on input l
-ine 142.
+ine 159.
 
 
 Package natbib Warning: Citation `KAGRA:2020tym' on page 1 undefined on input l
-ine 142.
+ine 159.
 
 
 Package natbib Warning: Citation `LIGOScientific:2026wfs' on page 1 undefined o
-n input line 142.
+n input line 159.
 
 
 Package natbib Warning: Citation `LIGOScientific:2017fdd' on page 1 undefined o
-n input line 144.
+n input line 161.
 
 
 Package natbib Warning: Citation `Grace:2023kqq' on page 1 undefined on input l
-ine 144.
+ine 161.
 
 
 Package natbib Warning: Citation `Keitel:2019zhb' on page 1 undefined on input 
-line 144.
+line 161.
 
 
 Package natbib Warning: Citation `Haskell:2023exob' on page 1 undefined on inpu
-t line 144.
+t line 161.
 
 
 Package natbib Warning: Citation `Miller:2024rca' on page 1 undefined on input 
-line 144.
+line 161.
 
 
 Package natbib Warning: Citation `Andres-Carcasona:2024jvz' on page 1 undefined
- on input line 144.
+ on input line 161.
 
 
-Package natbib Warning: Citation `Rodriguez:2026oyi' on page 1 undefined on inp
-ut line 144.
+Package natbib Warning: Citation `Rodriguez:2026oyia' on page 1 undefined on in
+put line 161.
 
 
 Package natbib Warning: Citation `Siemonsen:2019ebd' on page 1 undefined on inp
-ut line 144.
+ut line 161.
 
 
 Package natbib Warning: Citation `Jones:2023fzz' on page 1 undefined on input l
-ine 144.
+ine 161.
 
 
 Package natbib Warning: Citation `LIGOScientific:2025csr' on page 1 undefined o
-n input line 144.
+n input line 161.
 
 
 Package natbib Warning: Citation `Owen:1998dk' on page 1 undefined on input lin
-e 144.
+e 161.
 
 
 Package natbib Warning: Citation `Wette:2023dom' on page 1 undefined on input l
-ine 146.
+ine 163.
 
 
 Package natbib Warning: Citation `Tenorio:2021wmz' on page 1 undefined on input
- line 146.
+ line 163.
 
 
 Package natbib Warning: Citation `Piccinni:2018akm' on page 1 undefined on inpu
-t line 146.
+t line 163.
 
 
 Package natbib Warning: Citation `Prix:2011qv' on page 1 undefined on input lin
-e 146.
+e 163.
 
 
 Package natbib Warning: Citation `Suvorova:2016rdc' on page 1 undefined on inpu
-t line 146.
+t line 163.
 
 
 Package natbib Warning: Citation `Sun:2017zge' on page 1 undefined on input lin
-e 146.
+e 163.
 
 
 Package natbib Warning: Citation `Macquet:2021ttqa' on page 1 undefined on inpu
-t line 146.
+t line 163.
 
 
 Package natbib Warning: Citation `Carr:2023tpt' on page 1 undefined on input li
-ne 150.
+ne 167.
 
 
 Package natbib Warning: Citation `Carr:1975qj' on page 1 undefined on input lin
-e 150.
-
-
-LaTeX Warning: Reference `sec:signal_model' on page 1 undefined on input line 1
-52.
-
-
-LaTeX Warning: Reference `sec:methods' on page 1 undefined on input line 152.
-
-
-LaTeX Warning: Reference `sec:distance_sens' on page 1 undefined on input line 
-152.
-
-
-LaTeX Warning: Reference `sec:discussion' on page 1 undefined on input line 152
-.
-
-
-LaTeX Warning: Reference `sec:conclusion' on page 1 undefined on input line 152
-.
+e 167.
 
 [1{/usr/local/texlive/2025/texmf-var/fonts/map/pdftex/updmap/pdftex.map}{/usr/l
 ocal/texlive/2025/texmf-dist/fonts/enc/dvips/lm/lm-ec.enc}{/usr/local/texlive/2
 025/texmf-dist/fonts/enc/dvips/lm/lm-mathsy.enc}{/usr/local/texlive/2025/texmf-
-dist/fonts/enc/dvips/lm/lm-rm.enc}]
+dist/fonts/enc/dvips/lm/lm-rm.enc}{/usr/local/texlive/2025/texmf-dist/fonts/enc
+/dvips/lm/lm-mathit.enc}]
 
 Package natbib Warning: Citation `Blanchet:2001ax' on page 2 undefined on input
- line 171.
+ line 188.
 
 
 Package natbib Warning: Citation `Faye:2012we' on page 2 undefined on input lin
-e 171.
+e 188.
 
 
 Package natbib Warning: Citation `Blanchet2023_4p5PN' on page 2 undefined on in
-put line 171.
+put line 188.
+
+
+Package natbib Warning: Citation `Blanchet2023_4p5PN' on page 2 undefined on in
+put line 188.
 
 
 Package natbib Warning: Citation `Buonanno:2009zt' on page 2 undefined on input
- line 171.
+ line 188.
 
 
 Package natbib Warning: Citation `Pan:2007nw' on page 2 undefined on input line
- 171.
+ 188.
 
 
 Package natbib Warning: Citation `Boyle:2009dg' on page 2 undefined on input li
-ne 171.
+ne 188.
 
 
 Package natbib Warning: Citation `Buonanno:2009zt' on page 2 undefined on input
- line 171.
+ line 188.
 
 
 Package natbib Warning: Citation `Arun:2004hn' on page 2 undefined on input lin
-e 171.
+e 188.
 
 LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 1
-71.
+88.
 (/usr/local/texlive/2025/texmf-dist/tex/latex/lm/t1lmtt.fd
 File: t1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
@@ -1191,565 +1187,382 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             See the microtype manual for details.
 
 
-Package natbib Warning: Citation `lal' on page 2 undefined on input line 171.
+Package natbib Warning: Citation `lalsuite' on page 2 undefined on input line 1
+88.
 
 
-Package natbib Warning: Citation `swiglal' on page 2 undefined on input line 17
-1.
+Package natbib Warning: Citation `swiglal' on page 2 undefined on input line 18
+8.
 
-
-LaTeX Warning: Reference `fig:PN_error' on page 2 undefined on input line 173.
-
-<figs/PN_error.png, id=31, 650.43pt x 722.7pt>
+[2{/usr/local/texlive/2025/texmf-dist/fonts/enc/dvips/lm/lm-mathex.enc}]
+<figs/PN_error.png, id=107, 433.62pt x 578.16pt>
 File: figs/PN_error.png Graphic file (type png)
 <use figs/PN_error.png>
-Package pdftex.def Info: figs/PN_error.png  used on input line 177.
-(pdftex.def)             Requested size: 233.69925pt x 259.66454pt.
-
-Package natbib Warning: Citation `LIGOScientific:2026wxza' on page 2 undefined 
-on input line 184.
+Package pdftex.def Info: figs/PN_error.png  used on input line 194.
+(pdftex.def)             Requested size: 233.69925pt x 311.60185pt.
 
 
-Package natbib Warning: Citation `LVK:2022ydq' on page 2 undefined on input lin
-e 184.
+Package natbib Warning: Citation `LIGOScientific:2026wxza' on page 3 undefined 
+on input line 201.
 
 
-Package natbib Warning: Citation `Kacanja:2026byy' on page 2 undefined on input
- line 184.
+Package natbib Warning: Citation `LVK:2022ydq' on page 3 undefined on input lin
+e 201.
 
 
-Overfull \hbox (21.73175pt too wide) detected at line 188
-[]
- []
-
-[2{/usr/local/texlive/2025/texmf-dist/fonts/enc/dvips/lm/lm-mathit.enc}{/usr/lo
-cal/texlive/2025/texmf-dist/fonts/enc/dvips/lm/lm-mathex.enc}]
-
-LaTeX Warning: A float is stuck (cannot be placed) on input line 198.
-
-
-LaTeX Warning: A float is stuck (cannot be placed) on input line 198.
-
-
-Class revtex4-2 Warning: Deferred float stuck during \clearpage processing.
-
-
-LaTeX Warning: Reference `sec:coherent_analysis' on page 3 undefined on input l
-ine 208.
-
-
-LaTeX Warning: Reference `sec:resampling' on page 3 undefined on input line 208
-.
-
-
-LaTeX Warning: Reference `sec:semicoherent_combination' on page 3 undefined on 
-input line 208.
+Package natbib Warning: Citation `Kacanja:2026byy' on page 3 undefined on input
+ line 201.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `math shift' on input line 218.
+(hyperref)                removing `math shift' on input line 231.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `subscript' on input line 218.
+(hyperref)                removing `subscript' on input line 231.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `math shift' on input line 218.
-
-
-Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `math shift' on input line 279.
-
-
-Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `\beta' on input line 279.
-
-
-Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `math shift' on input line 279.
+(hyperref)                removing `math shift' on input line 231.
 
 [3 <./figs/PN_error.png>]
-Underfull \hbox (badness 1603) detected at line 295
- []$[]  \OMS/lmsy/m/n/10 M[]\OT1/lmr/m/n/10 (\OML/lmm/m/it/10 T[]; f[]; ^^L; ^^
-N^^L\OT1/lmr/m/n/10 ) = 1 \OMS/lmsy/m/n/10 ^^@ O\OT1/lmr/m/n/10 (\OML/lmm/m/it/
-10 T[]; f[]; ^^L; ^^N^^L\OT1/lmr/m/n/10 )\OML/lmm/m/it/10 ;$ [][]  
- []
-
 
 Package natbib Warning: Citation `Smith:1987hh' on page 4 undefined on input li
-ne 335.
+ne 286.
 
 
 Package natbib Warning: Citation `livasBroadbandSearchTechniques1989' on page 4
- undefined on input line 335.
+ undefined on input line 286.
 
 
 Package natbib Warning: Citation `Jaranowski:1998qm' on page 4 undefined on inp
-ut line 335.
+ut line 286.
 
 
 Package natbib Warning: Citation `Astone:2010ct' on page 4 undefined on input l
-ine 335.
+ine 286.
 
 
 Package natbib Warning: Citation `Braccini:2011zz' on page 4 undefined on input
- line 335.
+ line 286.
 
 
 Package natbib Warning: Citation `Astone:2014dea' on page 4 undefined on input 
-line 335.
+line 286.
 
 
 Package natbib Warning: Citation `Mastrogiovanni:2017xjr' on page 4 undefined o
-n input line 335.
+n input line 286.
 
 
 Package natbib Warning: Citation `Meadors:2017pefa' on page 4 undefined on inpu
-t line 335.
+t line 286.
 
 
 Package natbib Warning: Citation `Singhal:2019dfn' on page 4 undefined on input
- line 335.
+ line 286.
 
 
 Package natbib Warning: Citation `LIGOScientific:2026qsb' on page 4 undefined o
-n input line 335.
+n input line 286.
 
 
 Package natbib Warning: Citation `LIGOScientific:2017ytx' on page 4 undefined o
-n input line 335.
+n input line 286.
 
-
-LaTeX Warning: Reference `eq:new_t' on page 4 undefined on input line 341.
-
-
-LaTeX Warning: Reference `eq:phi' on page 4 undefined on input line 341.
-
-
-LaTeX Warning: Reference `fig:resampling_picture' on page 4 undefined on input 
-line 345.
-
-
-LaTeX Warning: Reference `fig:resampling_spectra' on page 4 undefined on input 
-line 345.
-
-<figs/resampling_graphic.png, id=68, 578.16pt x 433.62pt>
+<figs/resampling_graphic.png, id=131, 578.16pt x 433.62pt>
 File: figs/resampling_graphic.png Graphic file (type png)
 <use figs/resampling_graphic.png>
-Package pdftex.def Info: figs/resampling_graphic.png  used on input line 350.
+Package pdftex.def Info: figs/resampling_graphic.png  used on input line 301.
 (pdftex.def)             Requested size: 233.69925pt x 175.27107pt.
+<figs/resampling_example.png, id=132, 520.344pt x 433.62pt>
+File: figs/resampling_example.png Graphic file (type png)
+<use figs/resampling_example.png>
+Package pdftex.def Info: figs/resampling_example.png  used on input line 310.
+(pdftex.def)             Requested size: 233.69925pt x 194.75005pt.
 
 Package natbib Warning: Citation `Jaranowski:1998qm' on page 4 undefined on inp
-ut line 359.
+ut line 317.
 
 
 Package natbib Warning: Citation `Astone:2010ct' on page 4 undefined on input l
-ine 359.
+ine 317.
 
 
 Package natbib Warning: Citation `Singhal:2019dfn' on page 4 undefined on input
- line 359.
-
-<figs/resampling_example.png, id=69, 520.344pt x 433.62pt>
-File: figs/resampling_example.png Graphic file (type png)
-<use figs/resampling_example.png>
-Package pdftex.def Info: figs/resampling_example.png  used on input line 363.
-(pdftex.def)             Requested size: 233.69925pt x 194.75005pt.
-
-Package natbib Warning: Citation `duttFastFourierTransforms1993' on page 4 unde
-fined on input line 370.
-
-
-Package natbib Warning: Citation `Barnett:2019FINUFFT' on page 4 undefined on i
-nput line 370.
+ line 317.
 
 [4 <./figs/resampling_graphic.png>]
 
-LaTeX Warning: A float is stuck (cannot be placed) on input line 371.
+LaTeX Warning: A float is stuck (cannot be placed) on input line 318.
 
 
-LaTeX Warning: A float is stuck (cannot be placed) on input line 371.
+LaTeX Warning: A float is stuck (cannot be placed) on input line 318.
 
 
 Class revtex4-2 Warning: Deferred float stuck during \clearpage processing.
 
 
+Package natbib Warning: Citation `duttFastFourierTransforms1993' on page 5 unde
+fined on input line 319.
+
+
+Package natbib Warning: Citation `Barnett:2019FINUFFT' on page 5 undefined on i
+nput line 319.
+
+
 Package natbib Warning: Citation `greengardAcceleratingNonuniformFast2004' on p
-age 5 undefined on input line 372.
+age 5 undefined on input line 319.
 
 
 Package natbib Warning: Citation `wareFastApproximateFourier1998' on page 5 und
-efined on input line 372.
+efined on input line 319.
 
 
 Package natbib Warning: Citation `finufftFlatironinstituteFinufftNonuniform' on
- page 5 undefined on input line 372.
+ page 5 undefined on input line 319.
 
 
 Package natbib Warning: Citation `shihCuFINUFFTLoadbalancedGPU2021' on page 5 u
-ndefined on input line 372.
+ndefined on input line 319.
 
 
 Package natbib Warning: Citation `linJyhmiinlinPynufft2023' on page 5 undefined
- on input line 372.
+ on input line 319.
 
 
 Package natbib Warning: Citation `vaillantGhisvailPyNFFT2023' on page 5 undefin
-ed on input line 372.
+ed on input line 319.
 
 
 Package natbib Warning: Citation `vanderplasJakevdpNfft2023' on page 5 undefine
-d on input line 372.
+d on input line 319.
 
 
 Package natbib Warning: Citation `ouGNUFFTWAutoTuningHighPerformance2017' on pa
-ge 5 undefined on input line 372.
+ge 5 undefined on input line 319.
 
 
 Package natbib Warning: Citation `2019SJSC...41C.479B' on page 5 undefined on i
-nput line 372.
+nput line 319.
 
-
-LaTeX Warning: Reference `fig:resampling_spectra' on page 5 undefined on input 
-line 372.
-
-
-LaTeX Warning: Reference `fig:NUFFT_speedup' on page 5 undefined on input line 
-379.
-
-
-LaTeX Warning: Reference `sec:nufft_performance' on page 5 undefined on input l
-ine 379.
-
-<figs/2d_strobo_vs_nufft_speedup.png, id=85, 505.89pt x 317.988pt>
+<figs/2d_strobo_vs_nufft_speedup.png, id=150, 462.528pt x 346.896pt>
 File: figs/2d_strobo_vs_nufft_speedup.png Graphic file (type png)
 <use figs/2d_strobo_vs_nufft_speedup.png>
 Package pdftex.def Info: figs/2d_strobo_vs_nufft_speedup.png  used on input lin
-e 383.
-(pdftex.def)             Requested size: 233.69925pt x 146.89731pt.
+e 325.
+(pdftex.def)             Requested size: 233.69925pt x 175.27371pt.
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `math shift' on input line 390.
-
-
-Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `subscript' on input line 390.
+(hyperref)                removing `math shift' on input line 332.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `math shift' on input line 390.
+(hyperref)                removing `subscript' on input line 332.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `math shift' on input line 397.
-
-
-Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `subscript' on input line 397.
-
-
-Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `math shift' on input line 397.
+(hyperref)                removing `math shift' on input line 332.
 
 
 Package natbib Warning: Citation `Astone:2014esa' on page 5 undefined on input 
-line 399.
+line 334.
 
 
 Package natbib Warning: Citation `Miller:2018rbg' on page 5 undefined on input 
-line 399.
+line 334.
 
 
 Package natbib Warning: Citation `Piccinni:2018akm' on page 5 undefined on inpu
-t line 399.
+t line 334.
 
 
 Package natbib Warning: Citation `Krishnan:2004sv' on page 5 undefined on input
- line 399.
+ line 334.
 
 
 Package natbib Warning: Citation `Astone:2014esa' on page 5 undefined on input 
-line 399.
+line 334.
 
 
 Package natbib Warning: Citation `Mendell_stackslide_hough' on page 5 undefined
- on input line 399.
+ on input line 334.
 
 
 Package natbib Warning: Citation `Miller:2018rbg' on page 5 undefined on input 
-line 399.
+line 334.
 
 
 Package natbib Warning: Citation `Jaranowski:1998qm' on page 5 undefined on inp
-ut line 399.
+ut line 334.
 
 
 Package natbib Warning: Citation `Suvorova:2016rdc' on page 5 undefined on inpu
-t line 399.
+t line 334.
 
 
 Package natbib Warning: Citation `Sun:2017zge' on page 5 undefined on input lin
-e 399.
+e 334.
 
 
 Package natbib Warning: Citation `Alestas:2024ubs' on page 5 undefined on input
- line 399.
+ line 334.
 
 
 Package natbib Warning: Citation `Brady:1998nj' on page 5 undefined on input li
-ne 399.
+ne 334.
 
 
 Package natbib Warning: Citation `Mendell_stackslide_hough' on page 5 undefined
- on input line 399.
+ on input line 334.
 
 [5 <./figs/resampling_example.png> <./figs/2d_strobo_vs_nufft_speedup.png>]
+<figs/weighted_chi2_threshold.png, id=160, 462.528pt x 332.1135pt>
+File: figs/weighted_chi2_threshold.png Graphic file (type png)
+<use figs/weighted_chi2_threshold.png>
+Package pdftex.def Info: figs/weighted_chi2_threshold.png  used on input line 3
+82.
+(pdftex.def)             Requested size: 233.69925pt x 167.80467pt.
+<figs/weighted_vs_equal_roc.png, id=163, 462.528pt x 332.1135pt>
+File: figs/weighted_vs_equal_roc.png Graphic file (type png)
+<use figs/weighted_vs_equal_roc.png>
+Package pdftex.def Info: figs/weighted_vs_equal_roc.png  used on input line 395
+.
+(pdftex.def)             Requested size: 233.69925pt x 167.80467pt.
 
-LaTeX Warning: Reference `sec:signal_model' on page 6 undefined on input line 4
-01.
+[6 <./figs/weighted_chi2_threshold.png> <./figs/weighted_vs_equal_roc.png>]
 
-
-Package natbib Warning: Citation `Prix:2007ks' on page 6 undefined on input lin
-e 462.
-
-
-Package natbib Warning: Citation `Wette:2014tca' on page 6 undefined on input l
-ine 462.
-
-
-Package natbib Warning: Citation `Brown:2012nn' on page 6 undefined on input li
-ne 463.
-
-
-Package natbib Warning: Citation `Hanna:2022zpk' on page 6 undefined on input l
-ine 465.
+Package natbib Warning: Citation `Prix:2007ks' on page 7 undefined on input lin
+e 411.
 
 
-Package natbib Warning: Citation `Hanna:2024tom' on page 6 undefined on input l
-ine 465.
+Package natbib Warning: Citation `Wette:2014tca' on page 7 undefined on input l
+ine 411.
 
 
-Package natbib Warning: Citation `Kacanja:2024pjh' on page 6 undefined on input
- line 465.
+Package natbib Warning: Citation `Brown:2012nn' on page 7 undefined on input li
+ne 412.
 
 
-Package natbib Warning: Citation `Roy:2017oul' on page 6 undefined on input lin
-e 465.
+Package natbib Warning: Citation `Hanna:2022zpk' on page 7 undefined on input l
+ine 414.
 
 
-Package natbib Warning: Citation `Roy:2017qgg' on page 6 undefined on input lin
-e 465.
+Package natbib Warning: Citation `Hanna:2024tom' on page 7 undefined on input l
+ine 414.
 
 
-LaTeX Warning: Reference `eq:semicoherent_mismatch' on page 6 undefined on inpu
-t line 481.
+Package natbib Warning: Citation `Kacanja:2024pjh' on page 7 undefined on input
+ line 414.
 
 
-Package natbib Warning: Citation `Jaranowski:2005hz' on page 6 undefined on inp
-ut line 502.
+Package natbib Warning: Citation `Roy:2017oul' on page 7 undefined on input lin
+e 414.
 
 
-Package natbib Warning: Citation `Astone:2014esa' on page 6 undefined on input 
-line 511.
+Package natbib Warning: Citation `Roy:2017qgg' on page 7 undefined on input lin
+e 414.
 
 
-Package natbib Warning: Citation `Jaranowski:1998qm' on page 6 undefined on inp
-ut line 511.
+Package natbib Warning: Citation `Jaranowski:2005hz' on page 7 undefined on inp
+ut line 451.
 
 
-Package natbib Warning: Citation `Mendell_stackslide_hough' on page 6 undefined
- on input line 511.
-
-[6]
-
-LaTeX Warning: Reference `fig:optimal_distance_sensitivity' on page 7 undefined
- on input line 518.
-
-<figs/maximum_distance_sensitivity_35PN.png, id=110, 417.7206pt x 327.3831pt>
-File: figs/maximum_distance_sensitivity_35PN.png Graphic file (type png)
-<use figs/maximum_distance_sensitivity_35PN.png>
-Package pdftex.def Info: figs/maximum_distance_sensitivity_35PN.png  used on in
-put line 521.
-(pdftex.def)             Requested size: 246.0pt x 192.79967pt.
-
-Package natbib Warning: Citation `Astone:2014esa' on page 7 undefined on input 
-line 565.
+Package natbib Warning: Citation `Green:2020jor' on page 7 undefined on input l
+ine 506.
 
 
-Package natbib Warning: Citation `Mendell_stackslide_hough' on page 7 undefined
- on input line 565.
+Package natbib Warning: Citation `Carr:2020xqk' on page 7 undefined on input li
+ne 506.
 
-
-LaTeX Warning: File `figs/semicoherent_distance_sensitivity_35PN.png' not found
- on input line 574.
-
-
-! Package pdftex.def Error: File `figs/semicoherent_distance_sensitivity_35PN.p
-ng' not found: using draft setting.
-
-See the pdftex.def package documentation for explanation.
-Type  H <return>  for immediate help.
- ...                                              
-                                                  
-l.574 ...micoherent_distance_sensitivity_35PN.png}
-                                                  
-? 
-[7 <./figs/maximum_distance_sensitivity_35PN.png>]
-
-LaTeX Warning: Reference `eq:semicoherent_dist_sens' on page 8 undefined on inp
-ut line 615.
-
-
-LaTeX Warning: Reference `fig:semicoherent_distance_sensitivity' on page 8 unde
-fined on input line 617.
-
-<figs/semicoherent_sensitivity_1d.png, id=125, 514.20105pt x 355.20705pt>
+[7]
+<figs/semicoherent_sensitivity_1d.png, id=195, 514.20105pt x 355.20705pt>
 File: figs/semicoherent_sensitivity_1d.png Graphic file (type png)
 <use figs/semicoherent_sensitivity_1d.png>
 Package pdftex.def Info: figs/semicoherent_sensitivity_1d.png  used on input li
-ne 628.
+ne 510.
 (pdftex.def)             Requested size: 246.0pt x 169.93918pt.
-<figs/detector_noise_spectra.png, id=126, 794.97pt x 346.896pt>
+
+
+Package natbib Warning: Citation `LIGOScientific:2026wxz' on page 8 undefined o
+n input line 517.
+
+
+Package natbib Warning: Citation `Kacanja:2026byy' on page 8 undefined on input
+ line 517.
+
+<figs/detector_noise_spectra.png, id=196, 794.97pt x 346.896pt>
 File: figs/detector_noise_spectra.png Graphic file (type png)
 <use figs/detector_noise_spectra.png>
-Package pdftex.def Info: figs/detector_noise_spectra.png  used on input line 64
-2.
+Package pdftex.def Info: figs/detector_noise_spectra.png  used on input line 53
+7.
 (pdftex.def)             Requested size: 246.0pt x 107.34608pt.
 
-LaTeX Warning: Reference `tab:detector-noise-injection-config' on page 8 undefi
-ned on input line 653.
-
-
-Overfull \hbox (43.06706pt too wide) in paragraph at lines 662--681
+Overfull \hbox (12.11159pt too wide) in paragraph at lines 556--575
  []$[]$ 
  []
 
-
-LaTeX Warning: Reference `fig:injection_spectra' on page 8 undefined on input l
-ine 683.
-
-
-LaTeX Warning: Reference `fig:injection_vs_distance' on page 8 undefined on inp
-ut line 685.
-
-
-LaTeX Warning: Reference `eq:semicoherent_dist_sens' on page 8 undefined on inp
-ut line 685.
-
-<figs/z_vs_distance_detector_noise.png, id=127, 520.344pt x 332.1135pt>
+<figs/z_vs_distance_detector_noise.png, id=201, 520.344pt x 332.1135pt>
 File: figs/z_vs_distance_detector_noise.png Graphic file (type png)
 <use figs/z_vs_distance_detector_noise.png>
 Package pdftex.def Info: figs/z_vs_distance_detector_noise.png  used on input l
-ine 689.
+ine 583.
 (pdftex.def)             Requested size: 196.80075pt x 125.61153pt.
 [8 <./figs/semicoherent_sensitivity_1d.png> <./figs/detector_noise_spectra.png>
 ]
 
-LaTeX Warning: A float is stuck (cannot be placed) on input line 707.
+LaTeX Warning: A float is stuck (cannot be placed) on input line 598.
 
 
-LaTeX Warning: A float is stuck (cannot be placed) on input line 707.
+LaTeX Warning: A float is stuck (cannot be placed) on input line 598.
 
 
 Class revtex4-2 Warning: Deferred float stuck during \clearpage processing.
 
 [9 <./figs/z_vs_distance_detector_noise.png>]
-
-Package natbib Warning: Citation `Faye:2012we' on page 10 undefined on input li
-ne 777.
-
-
-Package natbib Warning: Citation `Buonanno:2009zt' on page 10 undefined on inpu
-t line 777.
-
-
-Package natbib Warning: Citation `Buonanno:2002fy' on page 10 undefined on inpu
-t line 777.
-
-
-LaTeX Warning: Reference `table:dvdt-coefficients' on page 10 undefined on inpu
-t line 781.
-
-
-LaTeX Warning: Reference `eq:phase_validity' on page 10 undefined on input line
- 895.
-
-
-LaTeX Warning: Reference `sec:parameter_space' on page 10 undefined on input li
-ne 895.
-
-
-Package natbib Warning: Citation `Peters:1964zz' on page 10 undefined on input 
-line 913.
-
-
-Package natbib Warning: Citation `DeLuca:2020bjf' on page 10 undefined on input
- line 913.
-
-[10]
-
-LaTeX Warning: Reference `eq:nufft_speedup_scaling' on page 11 undefined on inp
-ut line 959.
-
 No file main.bbl.
 
 Package natbib Warning: There were undefined citations.
 
-[11] (./main.aux)
+[10] (./main.aux)
  ***********
 LaTeX2e <2025-06-01> patch level 1
 L3 programming layer <2025-08-13>
  ***********
-
-
-LaTeX Warning: There were undefined references.
-
-
-LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
-
-
-Package rerunfilecheck Warning: File `main.out' has changed.
-(rerunfilecheck)                Rerun to get outlines right
-(rerunfilecheck)                or use package `bookmark'.
-
-Package rerunfilecheck Info: Checksums for `main.out':
-(rerunfilecheck)             Before: <no file>
-(rerunfilecheck)             After:  10925B58F4519F3D6D7E5409B2A413C3;3688.
+Package rerunfilecheck Info: File `main.out' has not changed.
+(rerunfilecheck)             Checksum: E36506A4FD073F381D56DBC743F11676;2911.
  ) 
 Here is how much of TeX's memory you used:
- 28568 strings out of 467800
- 520520 string characters out of 5431889
- 973302 words of memory out of 5000000
- 56414 multiletter control sequences out of 15000+600000
- 718338 words of font info for 220 fonts, out of 8000000 for 9000
+ 28589 strings out of 467800
+ 519775 string characters out of 5431889
+ 974939 words of memory out of 5000000
+ 56460 multiletter control sequences out of 15000+600000
+ 717661 words of font info for 215 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 99i,13n,101p,1547b,541s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 99i,12n,101p,1576b,541s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/local/texlive/2025/texmf-dist/fonts/type1/public/lm/lmbx10.pfb></usr/lo
 cal/texlive/2025/texmf-dist/fonts/type1/public/lm/lmbx12.pfb></usr/local/texliv
 e/2025/texmf-dist/fonts/type1/public/lm/lmbx9.pfb></usr/local/texlive/2025/texm
 f-dist/fonts/type1/public/lm/lmex10.pfb></usr/local/texlive/2025/texmf-dist/fon
 ts/type1/public/lm/lmmi10.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/p
 ublic/lm/lmmi5.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/lm/lm
-mi6.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/lm/lmmi7.pfb></u
-sr/local/texlive/2025/texmf-dist/fonts/type1/public/lm/lmmi9.pfb></usr/local/te
-xlive/2025/texmf-dist/fonts/type1/public/lm/lmr10.pfb></usr/local/texlive/2025/
-texmf-dist/fonts/type1/public/lm/lmr5.pfb></usr/local/texlive/2025/texmf-dist/f
-onts/type1/public/lm/lmr6.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/p
-ublic/lm/lmr7.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/lm/lmr
-8.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/lm/lmr9.pfb></usr/
-local/texlive/2025/texmf-dist/fonts/type1/public/lm/lmri9.pfb></usr/local/texli
-ve/2025/texmf-dist/fonts/type1/public/lm/lmsy10.pfb></usr/local/texlive/2025/te
-xmf-dist/fonts/type1/public/lm/lmsy5.pfb></usr/local/texlive/2025/texmf-dist/fo
-nts/type1/public/lm/lmsy6.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/p
-ublic/lm/lmsy7.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/lm/lm
-sy9.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/lm/lmtt10.pfb></
-usr/local/texlive/2025/texmf-dist/fonts/type1/public/lm/lmtt9.pfb></usr/local/t
-exlive/2025/texmf-dist/fonts/type1/public/amsfonts/symbols/msam10.pfb>
-Output written on main.pdf (11 pages, 2989952 bytes).
+mi7.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/lm/lmmi9.pfb></u
+sr/local/texlive/2025/texmf-dist/fonts/type1/public/lm/lmr10.pfb></usr/local/te
+xlive/2025/texmf-dist/fonts/type1/public/lm/lmr5.pfb></usr/local/texlive/2025/t
+exmf-dist/fonts/type1/public/lm/lmr6.pfb></usr/local/texlive/2025/texmf-dist/fo
+nts/type1/public/lm/lmr7.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/pu
+blic/lm/lmr8.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/lm/lmr9
+.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/lm/lmri9.pfb></usr/
+local/texlive/2025/texmf-dist/fonts/type1/public/lm/lmsy10.pfb></usr/local/texl
+ive/2025/texmf-dist/fonts/type1/public/lm/lmsy6.pfb></usr/local/texlive/2025/te
+xmf-dist/fonts/type1/public/lm/lmsy7.pfb></usr/local/texlive/2025/texmf-dist/fo
+nts/type1/public/lm/lmsy9.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/p
+ublic/lm/lmtt10.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsf
+onts/symbols/msam10.pfb>
+Output written on main.pdf (10 pages, 2946507 bytes).
 PDF statistics:
- 319 PDF objects out of 1000 (max. 8388607)
- 235 compressed objects within 3 object streams
- 96 named destinations out of 1000 (max. 500000)
- 48181 words of extra memory for PDF output out of 51595 (max. 10000000)
+ 342 PDF objects out of 1000 (max. 8388607)
+ 263 compressed objects within 3 object streams
+ 70 named destinations out of 1000 (max. 500000)
+ 47786 words of extra memory for PDF output out of 51595 (max. 10000000)
 

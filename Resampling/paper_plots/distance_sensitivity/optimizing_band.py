@@ -13,6 +13,7 @@
 # ---
 
 # %%
+import argparse
 from pathlib import Path
 import sys
 
@@ -38,14 +39,6 @@ mpl.use("Agg")
 pl.style.use(SCRIPT_DIR.parent / "paper.mplstyle")
 
 # %%
-FREQUENCY_CONFIGS = [
-    (20.0, 120.0),
-    (40.0, 60.0),
-    (20.0, 40.0),
-    # (200.0, 100.0),
-    # (59.0, 60.0),
-    # (200.0, 220.0),
-]
 FREQUENCY_GRID_STEP = 1.0
 MASS_GRID_POINTS = 121
 OUTPUT_PATH = sc.FIG_DIR / "semicoherent_sensitivity_1d.png"
@@ -58,6 +51,35 @@ SENSITIVITY_COHERENT_POWER_MISMATCH = 0.1
 COHERENCE_SEARCH_TIME_MAX = 2000.0
 COHERENCE_SAMPLE_RATE = 512.0
 COHERENCE_ETA = 0.25
+
+
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Plot optimal and semicoherent sensitivity for search bands."
+    )
+    parser.add_argument(
+        "--frequency-config",
+        dest="frequency_configs",
+        action="append",
+        nargs=2,
+        type=float,
+        required=True,
+        metavar=("F_START", "F_STOP"),
+        help=(
+            "Search-band endpoints in Hz. Repeat this option to plot multiple "
+            "bands."
+        ),
+    )
+    args = parser.parse_args(argv)
+
+    for f_start, f_stop in args.frequency_configs:
+        if f_start <= 0.0 or f_stop <= f_start:
+            parser.error(
+                "each frequency config must satisfy 0 < F_START < F_STOP"
+            )
+
+    args.frequency_configs = [tuple(config) for config in args.frequency_configs]
+    return args
 
 
 def maximum_coherence_duration(f_start, f_stop):
@@ -138,7 +160,6 @@ def sensitivity_envelope(f_start, f_stop):
         "mspace": mspace,
         "optimal": np.max(optimal_grid, axis=1),
         "semicoherent": np.max(semicoherent_grid, axis=1),
-        "initial": semicoherent_grid[:,0],
         "coherence_duration": coherence_duration,
     }
 
@@ -154,25 +175,25 @@ def format_coherence_duration(duration):
     )
 
 
-def main():
+def main(frequency_configs):
     fig, ax = pl.subplots(figsize=(7.0, 4.8), constrained_layout=True)
 
     results = Parallel(n_jobs=4, prefer="processes")(
         delayed(sensitivity_envelope)(f_start, f_stop)
-        for f_start, f_stop in FREQUENCY_CONFIGS
+        for f_start, f_stop in frequency_configs
     )
 
     for idx, ((f_start, f_stop), result) in enumerate(
-        zip(FREQUENCY_CONFIGS, results)
+        zip(frequency_configs, results)
     ):
         label_prefix = f"{f_start:g}-{f_stop:g} Hz"
-        if (f_start, f_stop) == FREQUENCY_CONFIGS[0]:
+        if idx == 0:
             ax.plot(
                 result["mspace"],
                 result["optimal"],
                 color=f"C{idx + 1}",
                 ls="-",
-                label="Coherent",
+                label="Optimal",
             )
         ax.plot(
             result["mspace"],
@@ -191,7 +212,7 @@ def main():
         sc.GALACTIC_CENTER_PC,
         color="red",
         ls="--",
-        label="Galactic Center",
+        label="Galactic center",
     )
     ax.axhline(
         sc.ANDROMEDA_PC,
@@ -201,14 +222,13 @@ def main():
     )
     ax.set_xscale("log")
     ax.set_yscale("log")
-    ax.set_xlabel(r"$M_c \, [M_\odot$]")
-    ax.set_ylabel("Horizon distance [pc]")
-    ax.grid(alpha=0.25)
-    # ax.set_title("Maximized over initial frequency")
+    ax.set_xlabel(r"$M_c [M_\odot$]")
+    ax.set_ylabel("Distance sensitivity [pc]")
+    # ax.set_title("Distance sensitivity maximized over initial frequency")
     ax.legend()
 
     fig.savefig(OUTPUT_PATH, bbox_inches="tight")
 
 
 if __name__ == "__main__":
-    main()
+    main(parse_args().frequency_configs)

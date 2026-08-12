@@ -167,7 +167,7 @@ for Mc_msun in Mc_values_msun:
     )
 
 # --- 3. Plotting ---
-fig = plt.figure(figsize=(9, 10))
+fig = plt.figure(figsize=(6, 8))
 gs = fig.add_gridspec(2, 1)
 ax2 = fig.add_subplot(gs[0])
 ax3 = fig.add_subplot(gs[1])
@@ -212,7 +212,7 @@ ax2.plot(
     data["t_res_pn"],
     1/data["t_res_pn"],
     color='grey',
-    linestyle="-",
+    linestyle="--",
     label="Fourier bin width",
 )
 ax2.set_yscale("log")

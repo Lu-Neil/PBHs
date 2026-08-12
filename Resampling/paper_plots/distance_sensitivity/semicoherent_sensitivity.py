@@ -152,17 +152,34 @@ def semicoherent_penalty_factor(
         false_alarm_probability=false_alarm_probability,
         detection_probability=detection_probability,
     )
-    thresholds = np.array(
-        [
-            semicoherent_noncentrality_threshold(
-                n_coh,
-                false_alarm_probability=false_alarm_probability,
-                detection_probability=detection_probability,
-            )
-            for n_coh in unique_counts
-        ],
-        dtype=float,
+    # Solve all independent monotonic equations together.  Calling brentq once
+    # per grid value spends most of its time crossing the Python/SciPy boundary.
+    dof = 2.0 * unique_counts
+    statistic_thresholds = chi2.isf(false_alarm_probability, dof)
+    lower = np.zeros_like(statistic_thresholds)
+    upper = np.maximum(1.0, statistic_thresholds)
+
+    below_target = (
+        ncx2.sf(statistic_thresholds, dof, upper) < detection_probability
     )
+    while np.any(below_target):
+        upper[below_target] *= 2.0
+        below_target = (
+            ncx2.sf(statistic_thresholds, dof, upper) < detection_probability
+        )
+
+    # Bisection is robust here because the survival function increases
+    # monotonically with noncentrality.  Sixty iterations reach double-
+    # precision accuracy at the scales used by this model.
+    for _ in range(60):
+        midpoint = 0.5 * (lower + upper)
+        below_target = (
+            ncx2.sf(statistic_thresholds, dof, midpoint) < detection_probability
+        )
+        lower[below_target] = midpoint[below_target]
+        upper[~below_target] = midpoint[~below_target]
+
+    thresholds = 0.5 * (lower + upper)
     penalty = np.sqrt(coherent_lambda_thresh / thresholds)
     return penalty[inverse].reshape(chunk_count_grid.shape)
 

@@ -160,15 +160,13 @@ def track_to_real_strain(
     return np.asarray(amplitude * np.real(track.signal), dtype=float)
 
 
-def frequency_domain_inner_product(
+def _frequency_domain_data(
     h1,
     h2,
     dt,
     noise,
     zero_pad_factor,
 ):
-    """Return 4 int h1(f)^* h2(f) / S_n(f) df for finite sampled strains."""
-
     if h1.shape != h2.shape:
         raise ValueError("inner-product inputs must have the same shape.")
 
@@ -189,9 +187,47 @@ def frequency_domain_inner_product(
             "or chunk duration."
         )
 
-    df = frequency[1] - frequency[0]
-    psd = noise.psd_at(frequency[band])
-    return 4.0 * df * np.sum(np.conj(h1_tilde[band]) * h2_tilde[band] / psd)
+    weight = (
+        4.0
+        * (frequency[1] - frequency[0])
+        / noise.psd_at(frequency[band])
+    )
+    return h1_tilde[band], h2_tilde[band], weight
+
+
+def frequency_domain_inner_product(
+    h1,
+    h2,
+    dt,
+    noise,
+    zero_pad_factor,
+):
+    """Return 4 int h1(f)^* h2(f) / S_n(f) df for finite sampled strains."""
+    h1_tilde, h2_tilde, weight = _frequency_domain_data(
+        h1, h2, dt, noise, zero_pad_factor
+    )
+    return np.sum(np.conj(h1_tilde) * h2_tilde * weight)
+
+
+def frequency_domain_match(
+    h1,
+    h2,
+    dt,
+    noise,
+    zero_pad_factor,
+):
+    """Return the normalized match, transforming each waveform only once."""
+    h1_tilde, h2_tilde, weight = _frequency_domain_data(
+        h1, h2, dt, noise, zero_pad_factor
+    )
+    h1_norm = np.sum(np.abs(h1_tilde) ** 2 * weight).real
+    h2_norm = np.sum(np.abs(h2_tilde) ** 2 * weight).real
+    cross_term = np.sum(np.conj(h1_tilde) * h2_tilde * weight)
+    if h1_norm <= 0.0 or h2_norm <= 0.0:
+        raise ValueError("Waveform norm is not positive.")
+
+    match = np.abs(cross_term) / np.sqrt(h1_norm * h2_norm)
+    return float(np.clip(match, 0.0, 1.0))
 
 
 def waveform_mismatch_at_duration(
@@ -208,20 +244,13 @@ def waveform_mismatch_at_duration(
     )
     h_35pn = track_to_real_strain(track_35pn, config.amplitude_frequency_power)
 
-    template_norm = frequency_domain_inner_product(
-        h_template, h_template, dt, noise, config.zero_pad_factor
-    ).real
-    target_norm = frequency_domain_inner_product(
-        h_35pn, h_35pn, dt, noise, config.zero_pad_factor
-    ).real
-    cross_term = frequency_domain_inner_product(
-        h_template, h_35pn, dt, noise, config.zero_pad_factor
+    match = frequency_domain_match(
+        h_template,
+        h_35pn,
+        dt,
+        noise,
+        config.zero_pad_factor,
     )
-    if template_norm <= 0.0 or target_norm <= 0.0:
-        raise ValueError("Waveform norm is not positive.")
-
-    match = np.abs(cross_term) / np.sqrt(template_norm * target_norm)
-    match = float(np.clip(match, 0.0, 1.0))
     return 1.0 - match
 
 

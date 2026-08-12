@@ -51,6 +51,8 @@ SOLAR_DAY_S = 86400.0
 
 GALACTIC_CENTER_RA = np.deg2rad(266.416833)
 GALACTIC_CENTER_DEC = np.deg2rad(-29.007806)
+ANDROMEDA_RA = np.deg2rad(10.684708333333333)
+ANDROMEDA_DEC = np.deg2rad(41.26875)
 
 LLO_LAT = np.deg2rad(30.562894333574896)
 LLO_LNG = np.deg2rad(269.2257596112789)
@@ -227,8 +229,8 @@ def injection_gmst(t):
 def antenna_pattern_modulation(t):
     gmst = injection_gmst(t)
     template = five_vec(
-        ra=GALACTIC_CENTER_RA,
-        dec=GALACTIC_CENTER_DEC,
+        ra=ANDROMEDA_RA,
+        dec=ANDROMEDA_DEC,
         eta=INJECTION_ETA,
         psi=INJECTION_PSI,
         lat=LLO_LAT,
@@ -480,8 +482,8 @@ def expected_power_for_track(
         args.f0,
         args.mchirp,
         chirp_power,
-        GALACTIC_CENTER_RA,
-        GALACTIC_CENTER_DEC,
+        ANDROMEDA_RA,
+        ANDROMEDA_DEC,
         eta,
         psi,
         injection_gmst(t),
@@ -624,9 +626,9 @@ def main():
     print(f"frequency band: {args.f_min:g}-{args.f_max:g} Hz")
     print(f"Mc: {args.mchirp:.2e} Msun")
     print(
-        "sky location: Galactic Center "
-        f"(ra={np.rad2deg(GALACTIC_CENTER_RA):.6f} deg, "
-        f"dec={np.rad2deg(GALACTIC_CENTER_DEC):.6f} deg)"
+        "sky location: Andromeda (M31) "
+        f"(ra={np.rad2deg(ANDROMEDA_RA):.6f} deg, "
+        f"dec={np.rad2deg(ANDROMEDA_DEC):.6f} deg)"
     )
     print(
         "detector: LIGO Livingston "

@@ -2,4 +2,5 @@
 */Nov2025/*.ipynb
 *.pyc
 **/__pycache__
-
+overleaf/
+strain_data/

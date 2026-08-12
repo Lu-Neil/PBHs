@@ -326,9 +326,9 @@ def main():
     print(f"frequency band: {args.f_min:g}-{args.f_max:g} Hz")
     print(f"Mc: {args.mchirp:.2e} Msun")
     print(
-        "sky location: Galactic Center "
-        f"(ra={np.rad2deg(base.GALACTIC_CENTER_RA):.6f} deg, "
-        f"dec={np.rad2deg(base.GALACTIC_CENTER_DEC):.6f} deg)"
+        "sky location: Andromeda (M31) "
+        f"(ra={np.rad2deg(base.ANDROMEDA_RA):.6f} deg, "
+        f"dec={np.rad2deg(base.ANDROMEDA_DEC):.6f} deg)"
     )
     print(
         "detector: LIGO Livingston "
